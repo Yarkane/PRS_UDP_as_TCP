@@ -36,6 +36,8 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+//test
+
   //Définition adresse UDP de connexion :
   struct sockaddr_in adresseUDP; //Structure contenant addresse serveur
   memset((char*)&adresseUDP,0,sizeof(adresseUDP));
