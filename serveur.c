@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
       }
     }
     else{
-      //PORT data
+      //TODO : PORT data
       //Premier message : on envoie le premier segment du fichier
       //loop
         //attente de l'ACK

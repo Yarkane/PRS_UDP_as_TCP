@@ -48,7 +48,6 @@ int main(int argc, char *argv[])
     return -1;
   }
   printf("Descripteur : %i\n",socketClient);
-  //Lien entre les deux : Pas utile pour client
 
   //Connexion
   bind(socketClient,(struct sockaddr*)&adresse,sizeof(adresse));
@@ -119,6 +118,7 @@ int main(int argc, char *argv[])
               //CHANGEMENT DE port
               adresse.sin_port = htons(port); //Port du serveur data
               while(online){
+                //TODO RECEPTION fichier
                 //Envoi premier MESSAGE
                 //Reception premier segment
                 //Loop :
