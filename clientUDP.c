@@ -151,49 +151,46 @@ int main(int argc, char *argv[])
                 numSequence++;
                 sprintf(buffer, "%i BEGIN",numSequence);
                 sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
-                //Reception premier segment
+                //Receptions
                 recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-                numSequence++;
-                if(get_numSequence(buffer)==numSequence){
-                  char *ptr = strtok(NULL," ");
-                  sprintf(ligne,"%s",ptr);
-                  //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
-                  replace_str(ligne,underscore,espace);
-                  fputs(ligne, fichier);
-                  while(!strstr(buffer," END"))
-                  {
-                    numSequence++;
-                    sprintf(buffer, "%i ACK",numSequence);
-                    sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
-                    //reception segment
-                    recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-                    numSequence++;
-                    if(get_numSequence(buffer)==numSequence){
-                      if(strstr(buffer," END")){
-                        break;
-                      }
-                      char *ptr = strtok(NULL," ");
-                      sprintf(ligne,"%s",ptr);
-                      //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
-                      replace_str(ligne,underscore,espace);
-                      fputs(ligne, fichier);
-                    }
+                while(!strstr(buffer," END"))
+                {
+                  printf("ligne reçue\n");
+                  numSequence++;
+                  if(get_numSequence(buffer)==numSequence){
+                    char *ptr = strtok(NULL," ");
+                    sprintf(ligne,"%s",ptr);
+                    //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
+                    replace_str(ligne,underscore,espace);
+                    fputs(ligne, fichier);
                   }
+                  else printf("Numéro de séquence invalide\n");
+                  //envoi ack
+                  numSequence++;
+                  sprintf(buffer, "%i ACK",numSequence);
+                  sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
+                  //reception prochain segment
+                  recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
                 }
+                printf("END reçu\n");
                 //procédure END
+                //TODO : vérification num sequence du END
+                numSequence++;
                 numSequence++;
                 sprintf(buffer, "%i ENDACK",numSequence);
                 sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
                 //Reception du ACK final
                 recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+                printf("Reçu UDP : %s\n",buffer);
                 numSequence++;
                 if(get_numSequence(buffer)==numSequence){
                   if(strstr(buffer," ACK")){
                     fclose(fichier); // On ferme le fichier qui a été ouvert
                     //fin de la transmission
-                    return 0;
+                    online = 0;
                   }
                 }
+                else printf("Erreur numSequence");
               }
             }
           }
@@ -201,4 +198,5 @@ int main(int argc, char *argv[])
       }
     }
   }
+  return 0;
 }
