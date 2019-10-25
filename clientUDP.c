@@ -18,6 +18,11 @@
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
 
+/*
+  UNE REGLE SUR LE FICHIER A envoyer
+  UNE LIGNE NE DOIT PAS COMMENCER PAR END !!!
+*/
+
 int get_numSequence(char* buffer){
   //Récupération num séquence
   char *ptr = strtok(buffer, " "); //pointeur vers "numSequence"
@@ -155,10 +160,25 @@ int main(int argc, char *argv[])
                   //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
                   replace_str(ligne,underscore,espace);
                   fputs(ligne, fichier);
-                  //Loop :
-                    //envoi acknowledgement
-                    //incrementation num sequence
+                  while(!strstr(buffer," END"))
+                  {
+                    numSequence++;
+                    sprintf(buffer, "%i ACK",numSequence);
+                    sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
                     //reception segment
+                    recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+                    numSequence++;
+                    if(get_numSequence(buffer)==numSequence){
+                      if(strstr(buffer," END")){
+                        break;
+                      }
+                      char *ptr = strtok(NULL," ");
+                      sprintf(ligne,"%s",ptr);
+                      //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
+                      replace_str(ligne,underscore,espace);
+                      fputs(ligne, fichier);
+                    }
+                  }
                 }
                 //+procédure END
                 fclose(fichier); // On ferme le fichier qui a été ouvert

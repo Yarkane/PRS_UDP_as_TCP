@@ -17,6 +17,11 @@
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
 
+/*
+  UNE REGLE SUR LE FICHIER A envoyer
+  UNE LIGNE NE DOIT PAS COMMENCER PAR END !!!
+*/
+
 int get_numSequence(char* buffer){
   //Récupération num séquence
   char *ptr = strtok(buffer, " "); //pointeur vers "numSequence"
@@ -200,11 +205,17 @@ int main(int argc, char *argv[])
         sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
         while (fgets(buffer, BUFFER_TAILLE-6, fichier) != NULL){
           //attente de l'ACK
-
-          //incrementation num sequence
-          //verif num séquence
-          //envoi de la suite
+          recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+          numSequence++;
+          if((strstr(buffer, "ACK") != NULL) && (numSequence == get_numSequence(buffer))) {
+            //envoi de la suite
+            replace_str(buffer,espace,underscore);
+            numSequence++;
+            sprintf(buffer,"%i %s",numSequence,buffer);
+            sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+          }
         }
+      //reception ack
       //+procédure END
       fclose(fichier); // On ferme le fichier qui a été ouvert
       }
