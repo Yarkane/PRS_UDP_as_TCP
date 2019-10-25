@@ -1,3 +1,9 @@
+/*
+TODO :
+  - TIMEOUTS
+  - Créer une fonction qui s'occupe de la gestion des timeout + erreurs de transmission
+  - Congestion
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
