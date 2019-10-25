@@ -18,8 +18,9 @@
 #define TIMEOUT_MICRO 0
 
 /*
-  UNE REGLE SUR LE FICHIER A envoyer
-  UNE LIGNE NE DOIT PAS COMMENCER PAR END !!!
+  DEUX REGLEs SUR LE FICHIER A envoyer
+    - UNE LIGNE NE DOIT PAS COMMENCER PAR END !!!
+    - PAS DE LIGNE à moins de 2 caractères
 */
 
 int get_numSequence(char* buffer){
@@ -111,6 +112,7 @@ int main(int argc, char *argv[])
   int online = 1;
   int numSequence;
   char buffer[BUFFER_TAILLE];
+  char ligne[BUFFER_TAILLE-7];
   int selret, isInit;
   const char* espace = " ";
   const char* underscore = "_";
@@ -198,12 +200,13 @@ int main(int argc, char *argv[])
           //todo : envoyer "erreur" pour que le client ferme la connexion
           return 0;
         }
-        while (fgets(buffer, BUFFER_TAILLE-6, fichier) != NULL){
+        while (fgets(ligne, BUFFER_TAILLE-7, fichier) != NULL){
           //Traitement de la ligne : pour le bien de l'envoi, les espaces du message doivent être convertis en underscore
-          replace_str(buffer,espace,underscore);
+          replace_str(ligne,espace,underscore);
           //envoi
           numSequence++;
-          sprintf(buffer,"%i %s",numSequence,buffer);
+          sprintf(buffer,"%i %s",numSequence,ligne);
+          printf("%s\n",buffer);
           sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
           //attente de l'ACK
           recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);

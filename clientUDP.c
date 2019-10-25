@@ -19,8 +19,9 @@
 #define TIMEOUT_MICRO 0
 
 /*
-  UNE REGLE SUR LE FICHIER A envoyer
-  UNE LIGNE NE DOIT PAS COMMENCER PAR END !!!
+  DEUX REGLEs SUR LE FICHIER A envoyer
+    - UNE LIGNE NE DOIT PAS COMMENCER PAR END !!!
+    - PAS DE LIGNE  à moins de 2 caractères
 */
 
 int get_numSequence(char* buffer){
@@ -101,7 +102,7 @@ int main(int argc, char *argv[])
   int online = 1;
   int selret;
   char buffer[BUFFER_TAILLE];
-  char ligne[BUFFER_TAILLE-6];
+  char ligne[BUFFER_TAILLE-7];
 
   const char* espace = " ";
   const char* underscore = "_";
@@ -160,12 +161,13 @@ int main(int argc, char *argv[])
                 while(!strstr(buffer," END"))
                 {
                   printf("ligne reçue\n");
+                  printf("Reçu UDP : %s\n",buffer);
                   numSequence++;
                   if(get_numSequence(buffer)==numSequence){
                     char *ptr = strtok(NULL," ");
+                    sprintf(ligne,"%s",ptr);
                     memset(buffer, 0, sizeof(buffer));
                     printf("%s\n",ligne);
-                    sprintf(ligne,"%s",ptr);
                     //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
                     replace_str(ligne,underscore,espace);
                     printf("%s\n",ligne);

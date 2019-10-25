@@ -2,12 +2,10 @@ bonjour
 ceci est un texte
 ouaiiis
 vive Tc de mort
-
 oui
-
 ---
 4545 ceci est un texte
-
 "ouiouiouioui"
 sprintf("nonnon")
 "nonnonououi"
+131313 trucàenvoyer
