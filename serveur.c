@@ -216,12 +216,10 @@ int main(int argc, char *argv[])
           recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
           printf("Reçu UDP : %s\n",buffer);
           numSequence++;
-          if(strstr(buffer, "ACK") != NULL) {
-            while(!(get_numSequence(buffer) == numSequence)){
-              printf("numSequence invalide\n");
-              sendto(socketServUDP_data, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
-              recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-            }
+          while(!((strstr(buffer, "ACK") != NULL) && (get_numSequence(buffer) == numSequence))){
+            printf("numSequence ou type invalide\n");
+            sendto(socketServUDP_data, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+            recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
             printf("ligne envoyée et reçue\n");
             memset(buffer, 0, sizeof(buffer));
           }
@@ -236,25 +234,18 @@ int main(int argc, char *argv[])
         recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
         printf("Reçu UDP : %s\n",buffer);
         numSequence++;
-        if(strstr(buffer, "ENDACK") != NULL) {
-          while(!(get_numSequence(buffer) == numSequence)){
-            printf("numSequence invalide\n");
-            sendto(socketServUDP_data, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
-            recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-          }
-          //envoi ACK et fin de transmission
-          printf("ENDACK reçu\n");
-          numSequence++;
-          memset(buffer, 0, sizeof(buffer));
-          sprintf(buffer,"%i ACK",numSequence);
-          sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
-          fclose(fichier); // On ferme le fichier qui a été ouvert
+        while(!((strstr(buffer, "ENDACK") != NULL) && get_numSequence(buffer) == numSequence)){
+          printf("numSequence ou type invalide\n");
+          sendto(socketServUDP_data, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+          recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
         }
-        else{
-          printf("Erreur numsequence ou type de message\n");
-          printf("Reçu UDP : %s\n",buffer);
-        //else : renvoi END
-        }
+        //envoi ACK et fin de transmission
+        printf("ENDACK reçu\n");
+        numSequence++;
+        memset(buffer, 0, sizeof(buffer));
+        sprintf(buffer,"%i ACK",numSequence);
+        sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+        fclose(fichier); // On ferme le fichier qui a été ouvert
       }
     }
   }

@@ -203,16 +203,14 @@ int main(int argc, char *argv[])
             recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
             printf("Reçu UDP : %s\n",buffer);
             numSequence++;
-            if(strstr(buffer," ACK")){
-              while(!(get_numSequence(buffer)==numSequence)){
-                printf("numSequence invalide\n");
-                sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
-                recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-              }
-              fclose(fichier); // On ferme le fichier qui a été ouvert
-              //fin de la transmission
-              online = 0;
+            while(!((strstr(buffer," ACK")) && (get_numSequence(buffer)==numSequence))){
+              printf("numSequence ou type invalide\n");
+              sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
+              recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
             }
+            fclose(fichier); // On ferme le fichier qui a été ouvert
+            //fin de la transmission
+            online = 0;
           }
         }
       }
