@@ -69,6 +69,14 @@ int main(int argc, char *argv[])
   //Connexion
   bind(socketClient,(struct sockaddr*)&adresse,sizeof(adresse));
 
+  //Ouverture fichier client
+  FILE* fichier = fopen("fichier_client.txt", "w");
+  if (fichier==NULL)
+  {
+    printf("Erreur ouverture fichier !!");
+    return 0;
+  }
+
   //Descripteur
   fd_set socket_set;
   FD_ZERO(&socket_set);
@@ -103,6 +111,7 @@ int main(int argc, char *argv[])
 
   //write(socketClient,"SYN 4545",strlen("SYN 4545"));
   while(online){
+    memset(buffer, 0, sizeof(buffer));
     sprintf(buffer, "%i SYN",numSequence);
     sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
     //On attend un SYNACK
@@ -120,6 +129,7 @@ int main(int argc, char *argv[])
         numSequence++;
         if(get_numSequence(buffer) == numSequence){
           numSequence++;
+          memset(buffer, 0, sizeof(buffer));
           sprintf(buffer, "%i ACK",numSequence);
           sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
           //On attend le port sur lequel se connecter
@@ -140,15 +150,9 @@ int main(int argc, char *argv[])
               adresse.sin_port = htons(port); //Port du serveur data
               while(online){
                 //TODO RECEPTION fichier
-                //Ouverture fichier client
-                FILE* fichier = fopen("fichier_client.txt", "w");
-                if (fichier==NULL)
-                {
-                  printf("Erreur ouverture fichier !!");
-                  return 0;
-                }
                 //Envoi premier MESSAGE
                 numSequence++;
+                memset(buffer, 0, sizeof(buffer));
                 sprintf(buffer, "%i BEGIN",numSequence);
                 sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
                 //Receptions
@@ -159,14 +163,18 @@ int main(int argc, char *argv[])
                   numSequence++;
                   if(get_numSequence(buffer)==numSequence){
                     char *ptr = strtok(NULL," ");
+                    memset(buffer, 0, sizeof(buffer));
+                    printf("%s\n",ligne);
                     sprintf(ligne,"%s",ptr);
                     //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
                     replace_str(ligne,underscore,espace);
+                    printf("%s\n",ligne);
                     fputs(ligne, fichier);
                   }
                   else printf("Numéro de séquence invalide\n");
                   //envoi ack
                   numSequence++;
+                  memset(buffer, 0, sizeof(buffer));
                   sprintf(buffer, "%i ACK",numSequence);
                   sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
                   //reception prochain segment
@@ -177,20 +185,18 @@ int main(int argc, char *argv[])
                 //TODO : vérification num sequence du END
                 numSequence++;
                 numSequence++;
+                memset(buffer, 0, sizeof(buffer));
                 sprintf(buffer, "%i ENDACK",numSequence);
                 sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
                 //Reception du ACK final
                 recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
                 printf("Reçu UDP : %s\n",buffer);
                 numSequence++;
-                if(get_numSequence(buffer)==numSequence){
-                  if(strstr(buffer," ACK")){
-                    fclose(fichier); // On ferme le fichier qui a été ouvert
-                    //fin de la transmission
-                    online = 0;
-                  }
+                if((strstr(buffer," ACK"))&&(get_numSequence(buffer)==numSequence)){
+                  fclose(fichier); // On ferme le fichier qui a été ouvert
+                  //fin de la transmission
+                  online = 0;
                 }
-                else printf("Erreur numSequence");
               }
             }
           }

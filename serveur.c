@@ -152,6 +152,7 @@ int main(int argc, char *argv[])
         numSequence = get_numSequence(buffer);
         //Envoi du SYNACK
         numSequence++;
+        memset(buffer, 0, sizeof(buffer));
         sprintf(buffer,"%i SYNACK",numSequence);
         sendto(socketServUDP, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
         //Attente pour le ACK
@@ -168,6 +169,7 @@ int main(int argc, char *argv[])
           if(strstr(buffer," ACK")){
             if(get_numSequence(buffer)==numSequence) {
               numSequence++;
+              memset(buffer, 0, sizeof(buffer));
               sprintf(buffer,"%i %i",numSequence,atoi(argv[2])); //Envoi du port de données
               sendto(socketServUDP, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
             }
@@ -208,11 +210,13 @@ int main(int argc, char *argv[])
           numSequence++;
           if((strstr(buffer, "ACK") != NULL) && (numSequence == get_numSequence(buffer))) {
             printf("ligne envoyée et reçue\n");
+          memset(buffer, 0, sizeof(buffer));
           }
           //else : renvoyer le message
         }
         printf("fin du fichier\n");
         numSequence++;
+        memset(buffer, 0, sizeof(buffer));
         sprintf(buffer,"%i END",numSequence);
         sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
         //Attente ENDACK
@@ -223,6 +227,7 @@ int main(int argc, char *argv[])
           //envoi ACK et fin de transmission
           printf("ENDACK reçu\n");
           numSequence++;
+          memset(buffer, 0, sizeof(buffer));
           sprintf(buffer,"%i ACK",numSequence);
           sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
           fclose(fichier); // On ferme le fichier qui a été ouvert

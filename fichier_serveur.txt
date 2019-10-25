@@ -4,3 +4,10 @@ ouaiiis
 vive Tc de mort
 
 oui
+
+---
+4545 ceci est un texte
+
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
