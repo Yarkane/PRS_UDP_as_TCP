@@ -25,6 +25,18 @@ int get_numSequence(char* buffer){
   return numSequence;
 }
 
+void *replace_str(char *str, const char *orig, const char *rep)
+{
+  //FONCTION REMPLACANT CERTAINS CARACTERES DANS CHAINE DE CARACTERES
+  //Utilisé pour convertir ligne reçue
+  char *p;
+  while((p = strstr(str,orig)))
+  {
+    *p = *rep;
+  }
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
   //Arguments :
@@ -76,6 +88,10 @@ int main(int argc, char *argv[])
   int online = 1;
   int selret;
   char buffer[BUFFER_TAILLE];
+  char ligne[BUFFER_TAILLE-6];
+
+  const char* espace = " ";
+  const char* underscore = "_";
 
   srand(time(NULL));
   int numSequence = rand()/10000;
@@ -119,12 +135,33 @@ int main(int argc, char *argv[])
               adresse.sin_port = htons(port); //Port du serveur data
               while(online){
                 //TODO RECEPTION fichier
+                //Ouverture fichier client
+                FILE* fichier = fopen("fichier_client.txt", "w");
+                if (fichier==NULL)
+                {
+                  printf("Erreur ouverture fichier !!");
+                  return 0;
+                }
                 //Envoi premier MESSAGE
+                numSequence++;
+                sprintf(buffer, "%i BEGIN",numSequence);
+                sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
                 //Reception premier segment
-                //Loop :
-                  //envoi acknowledgement
-                  //reception segment
+                recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+                numSequence++;
+                if(get_numSequence(buffer)==numSequence){
+                  char *ptr = strtok(NULL," ");
+                  sprintf(ligne,"%s",ptr);
+                  //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
+                  replace_str(ligne,underscore,espace);
+                  fputs(ligne, fichier);
+                  //Loop :
+                    //envoi acknowledgement
+                    //incrementation num sequence
+                    //reception segment
+                }
                 //+procédure END
+                fclose(fichier); // On ferme le fichier qui a été ouvert
               }
             }
           }

@@ -24,6 +24,18 @@ int get_numSequence(char* buffer){
   return numSequence;
 }
 
+void *replace_str(char *str, const char *orig, const char *rep)
+{
+  //FONCTION REMPLACANT CERTAINS CARACTERES DANS CHAINE DE CARACTERES
+  //Utilisé pour formater ligne à envoyer
+  char *p;
+  while((p = strstr(str,orig)))
+  {
+    *p = *rep;
+  }
+  return 0;
+}
+
 //TODO : LECTURE FICHIER (integration dans arguments)
 
 int main(int argc, char *argv[])
@@ -90,10 +102,13 @@ int main(int argc, char *argv[])
   char* ipClient_data;
   int portClient_data;
 
+  FILE* fichier;
   int online = 1;
   int numSequence;
   char buffer[BUFFER_TAILLE];
   int selret, isInit;
+  const char* espace = " ";
+  const char* underscore = "_";
 
   //Descripteur
   fd_set socket_set;
@@ -157,12 +172,42 @@ int main(int argc, char *argv[])
     }
     else{
       //TODO : PORT data
-      //Premier message : on envoie le premier segment du fichier
-      //loop
-        //attente de l'ACK
-        //verif num séquence
-        //envoi de la suite
+      recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+      if(strcmp(buffer,"") != 0) printf("Reçu UDP : %s\n",buffer);
+      //recuperation de l'adresse
+      ipClient_data = inet_ntoa(adresse_data.sin_addr);
+      portClient_data = ntohs(adresse_data.sin_port);
+      printf("Adresse = %s\n",ipClient_data);
+      printf("Port = %i\n",portClient_data);
+      //Premier message ?????
+      if(strstr(buffer, " BEGIN") != NULL) {
+        //Récupération num séquence
+        numSequence = get_numSequence(buffer);
+        //Ouverture fichier
+        fichier = fopen("fichier_serveur.txt", "r");
+        if (fichier==NULL)
+        {
+          printf("Erreur ouverture fichier !!");
+          //todo : envoyer "erreur" pour que le client ferme la connexion
+          return 0;
+        }
+        //on envoie le premier segment du fichier
+        fgets(buffer, BUFFER_TAILLE-6, fichier);
+        //Traitement de la ligne : pour le bien de l'envoi, les espaces du message doivent être convertis en underscore
+        replace_str(buffer,espace,underscore);
+        numSequence++;
+        sprintf(buffer,"%i %s",numSequence,buffer);
+        sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+        while (fgets(buffer, BUFFER_TAILLE-6, fichier) != NULL){
+          //attente de l'ACK
+
+          //incrementation num sequence
+          //verif num séquence
+          //envoi de la suite
+        }
       //+procédure END
+      fclose(fichier); // On ferme le fichier qui a été ouvert
+      }
     }
   }
   return 0;
