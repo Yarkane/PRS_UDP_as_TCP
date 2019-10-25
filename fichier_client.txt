@@ -2,13 +2,40 @@ bonjour
 ceci est un texte
 ouaiiis
 vive Tc de mort
-\
-Koui
-\
-K---
+oui
+---
 4545 ceci est un texte
-\
-K"ouiouiouioui"
+"ouiouiouioui"
 sprintf("nonnon")
 "nonnonououi"
 131313 trucàenvoyer
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
+"ouiouiouioui"
+sprintf("nonnon")
+"nonnonououi"
