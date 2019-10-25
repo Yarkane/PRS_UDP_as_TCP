@@ -180,8 +180,20 @@ int main(int argc, char *argv[])
                     }
                   }
                 }
-                //+procédure END
-                fclose(fichier); // On ferme le fichier qui a été ouvert
+                //procédure END
+                numSequence++;
+                sprintf(buffer, "%i ENDACK",numSequence);
+                sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
+                //Reception du ACK final
+                recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+                numSequence++;
+                if(get_numSequence(buffer)==numSequence){
+                  if(strstr(buffer," ACK")){
+                    fclose(fichier); // On ferme le fichier qui a été ouvert
+                    //fin de la transmission
+                    return 0;
+                  }
+                }
               }
             }
           }
@@ -189,5 +201,4 @@ int main(int argc, char *argv[])
       }
     }
   }
-  return 0;
 }

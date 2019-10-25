@@ -214,10 +214,27 @@ int main(int argc, char *argv[])
             sprintf(buffer,"%i %s",numSequence,buffer);
             sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
           }
+          //else : renvoyer le message
         }
-      //reception ack
-      //+procédure END
-      fclose(fichier); // On ferme le fichier qui a été ouvert
+        recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+        numSequence++;
+        if((strstr(buffer, "ACK") != NULL) && (numSequence == get_numSequence(buffer))) {
+          numSequence++;
+          sprintf(buffer,"%i END",numSequence);
+          sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+          //Attente ENDACK
+          recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+          numSequence++;
+          if((strstr(buffer, "ENDACK") != NULL) && (numSequence == get_numSequence(buffer))) {
+            //envoi ACK et fin de transmission
+            numSequence++;
+            sprintf(buffer,"%i ACK",numSequence);
+            sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+            fclose(fichier); // On ferme le fichier qui a été ouvert
+          }
+          //else : renvoi END
+        }
+        //else : renvoyer le message
       }
     }
   }
