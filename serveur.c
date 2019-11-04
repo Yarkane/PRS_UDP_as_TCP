@@ -17,9 +17,9 @@ TODO :
 #include <sys/time.h>
 #include <sys/select.h>
 
-#define domain AF_INET
-#define type_UDP SOCK_DGRAM
-#define protocol 0
+#define DOMAIN AF_INET
+#define TYPE SOCK_DGRAM
+#define PROTOCOL 0
 #define BUFFER_TAILLE 63
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
@@ -49,8 +49,6 @@ void *replace_str(char *str, const char *orig, const char *rep)
   return 0;
 }
 
-//TODO : LECTURE FICHIER (integration dans arguments)
-
 int main(int argc, char *argv[])
 {
   //Arguments :
@@ -64,13 +62,13 @@ int main(int argc, char *argv[])
   //Définition adresse UDP de connexion :
   struct sockaddr_in adresseUDP; //Structure contenant addresse serveur
   memset((char*)&adresseUDP,0,sizeof(adresseUDP));
-  adresseUDP.sin_family = domain;
+  adresseUDP.sin_family = DOMAIN;
   adresseUDP.sin_port = htons(atoi(argv[1])); //Port du serveur, converti en valeur réseau
   adresseUDP.sin_addr.s_addr = htonl(INADDR_ANY);
 
-  //Définition socket UDP
+  //Définition socket connexion udp
   int socketServUDP;
-  if( (socketServUDP = socket(domain,type_UDP,protocol)) == -1)
+  if( (socketServUDP = socket(DOMAIN,TYPE,PROTOCOL)) == -1)
   {
     perror("Creation de socket impossible\n");
   	return -1;
@@ -79,16 +77,16 @@ int main(int argc, char *argv[])
   //Lien entre les deux :
   bind(socketServUDP,(struct sockaddr*)&adresseUDP,sizeof(adresseUDP));
 
-  //Définition adresse UDP de connexion :
+  //Définition adresse UDP de data
   struct sockaddr_in adresseUDP_data; //Structure contenant addresse serveur
   memset((char*)&adresseUDP_data,0,sizeof(adresseUDP_data));
-  adresseUDP_data.sin_family = domain;
+  adresseUDP_data.sin_family = DOMAIN;
   adresseUDP_data.sin_port = htons(atoi(argv[2])); //Port du serveur, converti en valeur réseau
   adresseUDP_data.sin_addr.s_addr = htonl(INADDR_ANY);
 
-  //Définition socket UDP
+  //Définition socket UDP de data
   int socketServUDP_data;
-  if( (socketServUDP_data = socket(domain,type_UDP,protocol)) == -1)
+  if( (socketServUDP_data = socket(DOMAIN,TYPE,PROTOCOL)) == -1)
   {
     perror("Creation de socket impossible\n");
     return -1;
@@ -198,7 +196,7 @@ int main(int argc, char *argv[])
       portClient_data = ntohs(adresse_data.sin_port);
       printf("Adresse = %s\n",ipClient_data);
       printf("Port = %i\n",portClient_data);
-      //Premier message ?????
+      //test premier message
       if(strstr(buffer, " BEGIN") != NULL) {
         //Récupération num séquence
         numSequence = get_numSequence(buffer);

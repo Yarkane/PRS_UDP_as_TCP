@@ -17,9 +17,9 @@ TODO :
 #include <sys/time.h>
 #include <sys/select.h>
 
-#define domain AF_INET
-#define type SOCK_DGRAM
-#define protocol 0
+#define DOMAIN AF_INET
+#define TYPE SOCK_DGRAM
+#define PROTOCOL 0
 #define BUFFER_TAILLE 63
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
@@ -60,13 +60,13 @@ int main(int argc, char *argv[])
   //Définition adresse :
   struct sockaddr_in adresse; //Structure contenant addresse serveur
   memset((char*)&adresse,0,sizeof(adresse));
-  adresse.sin_family = domain;
+  adresse.sin_family = DOMAIN;
   adresse.sin_port = htons(atoi(argv[2])); //Port du serveur, converti en valeur réseau
   inet_aton(argv[1], &adresse.sin_addr); //Conversion de la chaine en valeur réseau, et attribution à la structure adresse
   socklen_t taille_adresse = sizeof(adresse); //Taille de l'adresse
   //Définition socket :
   int socketClient;
-  if( (socketClient = socket(domain,type,protocol)) == -1)
+  if( (socketClient = socket(DOMAIN,TYPE,PROTOCOL)) == -1)
   {
     perror("Creation de socket impossible\n");
     return -1;
@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
             printf("Reçu UDP : %s\n",buffer);
             numSequence++;
             while(!((strstr(buffer," ACK")) && (get_numSequence(buffer)==numSequence))){
-              printf("numSequence ou type invalide\n");
+              printf("numSequence ou TYPE invalide\n");
               sendto(socketClient, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
               recvfrom(socketClient, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
             }
