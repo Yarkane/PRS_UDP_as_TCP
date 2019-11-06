@@ -1,0 +1,11 @@
+Gestion du timeout :
+Introduisons une variable booléenne, "unreceived".
+Chaque envoi sera imbriqué dans une boucle while(unreceived).
+Si le message est acknowlegded, on passe unreceived à 0.
+Avant chaque envoi, on l'initialise à 1.
+
+Dans la boucle while d'envoi data :
+Pour préparer le terrain, nettoyer le tout et introduire des fonctions "atTimeout" et "atAck".
+
+Côté client :
+Réfléchir à ce qu'il se passe quand un ack n'est pas reçu de l'autre côté. 
