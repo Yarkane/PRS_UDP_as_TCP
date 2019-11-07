@@ -30,6 +30,19 @@ TODO :
     - PAS DE LIGNE à moins de 2 caractères
 */
 
+void fError(int type){
+  //Fonction se déclenchant lors d'un timeout ou erreur de numSequence lors de l'ack.
+  //Utilisée pour la congestion lors de l'envoi d'un fichier.
+  if (type == 1) printf("Timeout !\n");
+  else if (type == 2) printf("Numéro de séquence invalide !\n");
+}
+
+void fSuccess(){
+  //Fonction se déclenchant lors de la reception d'un Ack.
+  //Utilisée pour la congestion lors de l'envoi d'un fichier.
+  printf("ACK received.\n");
+}
+
 int get_numSequence(char* buffer){
   //Récupération num séquence
   char *ptr = strtok(buffer, " "); //pointeur vers "numSequence"
@@ -115,6 +128,7 @@ int main(int argc, char *argv[])
 
   FILE* fichier;
   int online = 1;
+  int unreceived;
   int numSequence;
   char buffer[BUFFER_TAILLE];
   char ligne[BUFFER_TAILLE-7];
@@ -145,6 +159,7 @@ int main(int argc, char *argv[])
     isInit = FD_ISSET(socketServUDP,&socket_set); //SI MESSAGE UDP
     if(isInit){
       //PORT CONNEXION
+      FD_CLR(socketServUDP_data,&socket_set);
       recvfrom(socketServUDP, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_arrivee, &taille_arrivee);
       if(strcmp(buffer,"") != 0) printf("Reçu UDP : %s\n",buffer);
       //recuperation de l'adresse
@@ -158,17 +173,21 @@ int main(int argc, char *argv[])
         //Récupération num séquence
         numSequence = get_numSequence(buffer);
         //Envoi du SYNACK
+        unreceived = 1;
         numSequence++;
         memset(buffer, 0, sizeof(buffer));
         sprintf(buffer,"%i SYNACK",numSequence);
-        sendto(socketServUDP, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
-        //Attente pour le ACK
-        FD_CLR(socketServUDP_data,&socket_set);
-        selret = select(5,&socket_set,NULL,NULL,&timeout);
-        if (selret<0)
-        {
-          perror("Erreur de select");
-          return -1;
+        while(unreceived){
+          sendto(socketServUDP, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
+          //Attente pour le ACK
+          FD_SET(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
+          selret = select(5,&socket_set,NULL,NULL,&timeout);
+          if (selret<0)
+          {
+            perror("Erreur de select");
+            return -1;
+          }
+          else if (selret != 0) unreceived = 0;
         }
         if (selret !=0){
           numSequence++;
@@ -188,7 +207,8 @@ int main(int argc, char *argv[])
       }
     }
     else{
-      //TODO : PORT data
+      //PORT DATA
+      FD_CLR(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
       recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
       if(strcmp(buffer,"") != 0) printf("Reçu UDP : %s\n",buffer);
       //recuperation de l'adresse
@@ -196,7 +216,7 @@ int main(int argc, char *argv[])
       portClient_data = ntohs(adresse_data.sin_port);
       printf("Adresse = %s\n",ipClient_data);
       printf("Port = %i\n",portClient_data);
-      //test premier message
+      //test premier message d'un envoi
       if(strstr(buffer, " BEGIN") != NULL) {
         //Récupération num séquence
         numSequence = get_numSequence(buffer);
@@ -205,44 +225,75 @@ int main(int argc, char *argv[])
         if (fichier==NULL)
         {
           printf("Erreur ouverture fichier !!");
-          //todo : envoyer "erreur" pour que le client ferme la connexion
+          //TODO : envoyer "erreur" pour que le client ferme la connexion
           return 0;
         }
+
+        //Boucle d'envoi du fichier (ici textuel)
         while (fgets(ligne, BUFFER_TAILLE-7, fichier) != NULL){
           //Traitement de la ligne : pour le bien de l'envoi, les espaces du message doivent être convertis en underscore
           replace_str(ligne,espace,underscore);
-          //envoi
+          //envoi et attente de l'ACK
+          unreceived = 1;
           numSequence++;
           sprintf(buffer,"%i %s",numSequence,ligne);
-          printf("%s\n",buffer);
-          sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
-          //attente de l'ACK
-          recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-          printf("Reçu UDP : %s\n",buffer);
-          numSequence++;
-          while(!((strstr(buffer, "ACK") != NULL) && (get_numSequence(buffer) == numSequence))){
-            printf("numSequence ou type invalide\n");
-            sendto(socketServUDP_data, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
-            recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-            printf("ligne envoyée et reçue\n");
-            memset(buffer, 0, sizeof(buffer));
+          //printf("%s\n",buffer);
+          //Boucle d'envoi d'un message et de l'attente de son ack
+          while(unreceived){
+            sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
+            //Attente Ack
+            FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
+            selret = select(5,&socket_set,NULL,NULL,&timeout);
+            if (selret<0)
+            {
+              perror("Erreur de select");
+              return -1;
+            }
+            else if (selret == 0) fError(1);
+            else if (selret != 0) {
+              //Vérification nature du message reçu
+              recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+              printf("Reçu UDP : %s\n",buffer);
+              if(!((strstr(buffer, "ACK") != NULL) && (get_numSequence(buffer) == numSequence))) fError(2);
+              else{
+                //message bien reçu et acknowlegded
+                unreceived = 0;
+                fSuccess();
+              }
+            }
           }
-          //else : renvoyer le message
         }
+
+        //Fin du fichier atteint : procédure end
         printf("fin du fichier\n");
         numSequence++;
+        unreceived = 1;
         memset(buffer, 0, sizeof(buffer));
+        //Envoi du END et attente ENDACK
         sprintf(buffer,"%i END",numSequence);
         sendto(socketServUDP_data, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
         //Attente ENDACK
-        recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-        printf("Reçu UDP : %s\n",buffer);
         numSequence++;
-        while(!((strstr(buffer, "ENDACK") != NULL) && get_numSequence(buffer) == numSequence)){
-          printf("numSequence ou type invalide\n");
-          sendto(socketServUDP_data, &buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_data, taille_data);
-          recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+        while(unreceived){
+          sendto(socketServUDP, buffer, strlen(buffer), 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
+          //Attente pour le ACK
+          FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
+          selret = select(5,&socket_set,NULL,NULL,&timeout);
+          if (selret<0)
+          {
+            perror("Erreur de select");
+            return -1;
+          }
+          else if (selret == 0) fError(1);
+          else if (selret != 0) {
+            //Vérification nature du message reçu
+            recvfrom(socketServUDP_data, buffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+            printf("Reçu UDP : %s\n",buffer);
+            if(!((strstr(buffer, "ENDACK") != NULL) && (get_numSequence(buffer) == numSequence))) fError(2);
+            else unreceived = 0;
+          }
         }
+
         //envoi ACK et fin de transmission
         printf("ENDACK reçu\n");
         numSequence++;
