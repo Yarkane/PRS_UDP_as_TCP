@@ -140,13 +140,14 @@ int main(int argc, char *argv[])
     while(unreceived){
       sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
       //On attend un SYNACK
+      FD_SET(socketClient, &socket_set); //Activation du bit associé à au socket UDP
       selret = select(4,&socket_set,NULL,NULL,&timeout);
       if (selret<0)
       {
         perror("Erreur de select");
         return -1;
       }
-      //else if (selret == 0) fError(1); -> appel à fError inutile en procédure SYN
+      else if (selret == 0) fError(1);
       else if (selret != 0){
         recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
         //Vérification message reçu
