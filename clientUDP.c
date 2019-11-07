@@ -1,9 +1,3 @@
-/*
-TODO :
-  - TIMEOUTS
-  - Créer une fonction qui s'occupe de la gestion des timeout + erreurs de transmission
-  - Congestion
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -129,110 +123,128 @@ int main(int argc, char *argv[])
   const char* espace = " ";
   const char* underscore = "_";
 
+  int unreceived;
+
   srand(time(NULL));
   int numSequence = rand()/10000;
 
   //write(socketClient,"SYN 4545",strlen("SYN 4545"));
   while(online){
+    //Procédure de connexion au serveur
+    //Envoi de SYN et attente de SYNACK
     memset(sendBuffer, 0, sizeof(sendBuffer));
     sprintf(sendBuffer, "%i SYN",numSequence);
+
+
+    unreceived = 1;
+    while(unreceived){
+      sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
+      //On attend un SYNACK
+      selret = select(4,&socket_set,NULL,NULL,&timeout);
+      if (selret<0)
+      {
+        perror("Erreur de select");
+        return -1;
+      }
+      //else if (selret == 0) fError(1); -> appel à fError inutile en procédure SYN
+      else if (selret != 0){
+        recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+        //Vérification message reçu
+        if((strstr(recvBuffer, "SYNACK") != NULL) && (get_numSequence(recvBuffer)==numSequence + 1)){
+          //Message valide
+          numSequence++;
+          printf("Reçu UDP : %s\n",recvBuffer);
+          unreceived = 0;
+          //Pas en procédure de réception : pas d'appel à fSuccess ou fError.
+        }
+      }
+    }
+
+    //TODO :
+    //Créer une fonction "sendWithTimeoutAndMessageCheck" exécutant le bloc plus haut
+    //le placer partout où nécessaire
+    //répliquer du côté client
+    //important pour gagner en clarté !
+
+
+
+    //envoi ACK
+    numSequence++;
+    memset(sendBuffer, 0, BUFFER_TAILLE);
+    sprintf(sendBuffer, "%i ACK",numSequence);
     sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-    //On attend un SYNACK
+    //On attend le port sur lequel se connecter
     selret = select(4,&socket_set,NULL,NULL,&timeout);
     if (selret<0)
     {
       perror("Erreur de select");
       return -1;
     }
-    //si 0 : timeout, on renvoie le message de SYN
     if (selret != 0){
       recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-      if(strstr(recvBuffer, "SYNACK") != NULL) {
-        //Vérification numéro de séquence
+      numSequence++;
+      while(!(get_numSequence(recvBuffer)==numSequence)){
+        printf("numSequence invalide\n");
+        sendto(socketClient, &sendBuffer, strlen(sendBuffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
+        recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+      }
+      char *ptr = strtok(NULL, " "); //pointeur vers num du port
+      int port = atoi(ptr);
+      printf("Port de data : %i\n",port);
+      //CHANGEMENT DE port
+      adresse.sin_port = htons(port); //Port du serveur data
+      while(online){
+        //Envoi premier MESSAGE
         numSequence++;
-        while(!(get_numSequence(recvBuffer)==numSequence)){
-          printf("numSequence invalide\n");
-          sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-          recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-        }
-        numSequence++;
-        memset(sendBuffer, 0, BUFFER_TAILLE);
-        sprintf(sendBuffer, "%i ACK",numSequence);
+        memset(sendBuffer, 0, sizeof(sendBuffer));
+        sprintf(sendBuffer, "%i BEGIN",numSequence);
         sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-        //On attend le port sur lequel se connecter
-        selret = select(4,&socket_set,NULL,NULL,&timeout);
-        if (selret<0)
+        //Receptions
+        recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+        while(!strstr(recvBuffer," END"))
         {
-          perror("Erreur de select");
-          return -1;
-        }
-        if (selret != 0){
-          recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+          printf("ligne reçue\n");
+          printf("Reçu UDP : %s\n",recvBuffer);
           numSequence++;
           while(!(get_numSequence(recvBuffer)==numSequence)){
             printf("numSequence invalide\n");
             sendto(socketClient, &sendBuffer, strlen(sendBuffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
             recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
           }
-          char *ptr = strtok(NULL, " "); //pointeur vers num du port
-          int port = atoi(ptr);
-          printf("Port de data : %i\n",port);
-          //CHANGEMENT DE port
-          adresse.sin_port = htons(port); //Port du serveur data
-          while(online){
-            //Envoi premier MESSAGE
-            numSequence++;
-            memset(sendBuffer, 0, sizeof(sendBuffer));
-            sprintf(sendBuffer, "%i BEGIN",numSequence);
-            sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-            //Receptions
-            recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-            while(!strstr(recvBuffer," END"))
-            {
-              printf("ligne reçue\n");
-              printf("Reçu UDP : %s\n",recvBuffer);
-              numSequence++;
-              while(!(get_numSequence(recvBuffer)==numSequence)){
-                printf("numSequence invalide\n");
-                sendto(socketClient, &sendBuffer, strlen(sendBuffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
-                recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-              }
-              char *ptr = strtok(NULL," ");
-              sprintf(ligne,"%s",ptr);
-              //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
-              replace_str(ligne,underscore,espace);
-              printf("%s\n",ligne);
-              fputs(ligne, fichier);
-              //envoi ack
-              //numSequence++; -> on n'incrémente pas, on acknowledge le paquet précédent
-              memset(sendBuffer, 0, sizeof(sendBuffer));
-              sprintf(sendBuffer, "%i ACK",numSequence);
-              sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-              //reception prochain segment
-              recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-            }
-            printf("END reçu\n");
-            //procédure END
-            //TODO : vérification num sequence du END
-            numSequence++;
-            numSequence++;
-            memset(sendBuffer, 0, sizeof(sendBuffer));
-            sprintf(sendBuffer, "%i ENDACK",numSequence);
-            sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-            //Reception du ACK final
-            recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-            printf("Reçu UDP : %s\n",recvBuffer);
-            numSequence++;
-            while(!((strstr(recvBuffer," ACK")) && (get_numSequence(recvBuffer)==numSequence))){
-              printf("numSequence ou TYPE invalide\n");
-              sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-              recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-            }
-            fclose(fichier); // On ferme le fichier qui a été ouvert
-            //fin de la transmission
-            online = 0;
-          }
+          char *ptr = strtok(NULL," ");
+          sprintf(ligne,"%s",ptr);
+          //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
+          replace_str(ligne,underscore,espace);
+          printf("%s\n",ligne);
+          fputs(ligne, fichier);
+          //envoi ack
+          //numSequence++; -> on n'incrémente pas, on acknowledge le paquet précédent
+          memset(sendBuffer, 0, sizeof(sendBuffer));
+          sprintf(sendBuffer, "%i ACK",numSequence);
+          sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
+          //reception prochain segment
+          recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
         }
+        printf("END reçu\n");
+        //procédure END
+        //TODO : vérification num sequence du END
+        numSequence++;
+        numSequence++;
+        memset(sendBuffer, 0, sizeof(sendBuffer));
+        sprintf(sendBuffer, "%i ENDACK",numSequence);
+        sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
+        //Reception du ACK final
+        recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+        printf("Reçu UDP : %s\n",recvBuffer);
+        numSequence++;
+        while(!((strstr(recvBuffer," ACK")) && (get_numSequence(recvBuffer)==numSequence))){
+          printf("numSequence ou TYPE invalide\n");
+          sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
+          recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+        }
+        fclose(fichier); // On ferme le fichier qui a été ouvert
+        //fin de la transmission
+        online = 0;
       }
     }
   }
