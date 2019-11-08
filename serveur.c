@@ -1,3 +1,5 @@
+//todo : dissocier lecture ficher et envoi
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -229,11 +231,11 @@ int main(int argc, char *argv[])
           //Traitement de la ligne : pour le bien de l'envoi, les espaces du message doivent être convertis en underscore
           replace_str(ligne,espace,underscore);
           //envoi et attente de l'ACK
-          unreceived = 1;
           numSequence++;
           sprintf(sendBuffer,"%i %s",numSequence,ligne);
           //printf("%s\n",sendBuffer);
           //Boucle d'envoi d'un message et de l'attente de son ack
+          unreceived = 1;
           while(unreceived){
             sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
             //Attente Ack

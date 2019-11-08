@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
     memset(sendBuffer, 0, BUFFER_TAILLE);
     sprintf(sendBuffer, "%i ACK",numSequence);
     sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-    //On attend le port sur lequel se connecter
+    //On attend le port de data
     selret = select(4,&socket_set,NULL,NULL,&timeout);
     if (selret<0)
     {
@@ -184,10 +184,9 @@ int main(int argc, char *argv[])
     if (selret != 0){
       recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
       numSequence++;
-      while(!(get_numSequence(recvBuffer)==numSequence)){
-        printf("numSequence invalide\n");
-        sendto(socketClient, &sendBuffer, strlen(sendBuffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
-        recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+      if(!(get_numSequence(recvBuffer)==numSequence)){
+        printf("numSequence invalide pour le numéro de port, abandon.\n");
+        return(-1);
       }
       char *ptr = strtok(NULL, " "); //pointeur vers num du port
       int port = atoi(ptr);
@@ -202,6 +201,7 @@ int main(int argc, char *argv[])
         sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
         //Receptions
         recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+
         while(!strstr(recvBuffer," END"))
         {
           printf("ligne reçue\n");
@@ -226,6 +226,7 @@ int main(int argc, char *argv[])
           //reception prochain segment
           recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
         }
+        
         printf("END reçu\n");
         //procédure END
         //TODO : vérification num sequence du END
@@ -233,16 +234,32 @@ int main(int argc, char *argv[])
         numSequence++;
         memset(sendBuffer, 0, sizeof(sendBuffer));
         sprintf(sendBuffer, "%i ENDACK",numSequence);
-        sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-        //Reception du ACK final
-        recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
-        printf("Reçu UDP : %s\n",recvBuffer);
-        numSequence++;
-        while(!((strstr(recvBuffer," ACK")) && (get_numSequence(recvBuffer)==numSequence))){
-          printf("numSequence ou TYPE invalide\n");
+
+        unreceived = 1;
+        while(unreceived){
           sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-          recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+          //On attend un ACK
+          FD_SET(socketClient, &socket_set); //Activation du bit associé à au socket UDP
+          selret = select(4,&socket_set,NULL,NULL,&timeout);
+          if (selret<0)
+          {
+            perror("Erreur de select");
+            return -1;
+          }
+          else if (selret == 0) fError(1);
+          else if (selret != 0){
+            recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
+            //Vérification message reçu
+            if((strstr(recvBuffer, "ACK") != NULL) && (get_numSequence(recvBuffer)==numSequence + 1)){
+              //Message valide
+              numSequence++;
+              printf("Reçu UDP : %s\n",recvBuffer);
+              unreceived = 0;
+              //Pas en procédure de réception : pas d'appel à fSuccess ou fError.
+            }
+          }
         }
+
         fclose(fichier); // On ferme le fichier qui a été ouvert
         //fin de la transmission
         online = 0;
