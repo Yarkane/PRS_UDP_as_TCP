@@ -14,7 +14,7 @@
 #define DOMAIN AF_INET
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
-#define BUFFER_TAILLE 1500
+#define BUFFER_TAILLE 128
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
 
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
   int selret;
   char sendBuffer[BUFFER_TAILLE];
   char recvBuffer[BUFFER_TAILLE];
-  char ligne[BUFFER_TAILLE-7];
+  char bloc[BUFFER_TAILLE-6];
   char bufferType[9];
 
   int unreceived;
@@ -184,11 +184,11 @@ int main(int argc, char *argv[])
           recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
         }
         char *ptr = recvBuffer + 6;
-        sprintf(ligne,"%s",ptr);
+        sprintf(bloc,"%s",ptr);
         //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
-        printf("%s\n",ligne);
-        fputs(ligne, fichier);
+        fputs(bloc, fichier);
         printf("Ecriture.\n");
+        memset(recvBuffer, 0, sizeof(recvBuffer));
         //envoi ack
         //numSequence++; -> on n'incrémente pas, on acknowledge le paquet précédent
         memset(sendBuffer, 0, sizeof(sendBuffer));

@@ -17,7 +17,7 @@
 #define DOMAIN AF_INET
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
-#define BUFFER_TAILLE 1500
+#define BUFFER_TAILLE 128
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
 
@@ -233,11 +233,11 @@ int main(int argc, char *argv[])
       //Boucle d'envoi du fichier
       int i = 0;
       while( i < taillefichier){
-        i += BUFFER_TAILLE-7;
+        i += BUFFER_TAILLE-6;
         //SI FIN DU FICHIER DEPASSEE
         if(i>taillefichier) i=taillefichier;
         //copie des octets à envoyer
-        memcpy(bloc,file+i,BUFFER_TAILLE-7);
+        memcpy(bloc,file+i,BUFFER_TAILLE-6);
         //ajout numéro de séquence
         numSequence++;
         sprintf(typeBuffer,"000000"); //Base du numéro de séquence
@@ -246,7 +246,9 @@ int main(int argc, char *argv[])
         memcpy(ptr,strSequence,strlen(strSequence)); //Ecriture au ponteur
         printf("Numéro de séquence : %s\n",typeBuffer);
         memset(sendBuffer, 0, sizeof(sendBuffer));
+        memset(recvBuffer, 0, sizeof(recvBuffer));
         sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
+        printf("%s\n",sendBuffer);
         //Boucle d'envoi d'un message et de l'attente de son ack
         unreceived = 1;
         while(unreceived){
