@@ -12,11 +12,12 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 
 #define DOMAIN AF_INET
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
-#define BUFFER_TAILLE 63
+#define BUFFER_TAILLE 1500
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
 
@@ -28,9 +29,8 @@
 
 void fError(int type){
   //Fonction se déclenchant lors d'un timeout ou erreur de numSequence lors de l'ack.
-  //Utilisée pour la congestion lors de l'envoi d'un fichier.
-  if (type == 1) printf("Timeout !\n");
-  else if (type == 2) printf("Numéro de séquence invalide !\n");
+  //Utilisée pour la congestion lors de l'envoi d'un fichier
+
 }
 
 void fSuccess(){
@@ -39,23 +39,16 @@ void fSuccess(){
   printf("ACK received.\n");
 }
 
-int get_numSequence(char* buffer){
+int get_numSequence(char* buffer, char* buffer2){
   //Récupération num séquence
-  char *ptr = strtok(buffer, " "); //pointeur vers "numSequence"
-  int numSequence = atoi(ptr);
+  memcpy(buffer2,buffer+3,6);
+  int numSequence = atoi(buffer2);
   return numSequence;
 }
 
-void *replace_str(char *str, const char *orig, const char *rep)
-{
-  //FONCTION REMPLACANT CERTAINS CARACTERES DANS CHAINE DE CARACTERES
-  //Utilisé pour formater ligne à envoyer
-  char *p;
-  while((p = strstr(str,orig)))
-  {
-    *p = *rep;
-  }
-  return 0;
+int min(int a, int b){
+  if (a<b) return a;
+  else return b;
 }
 
 int main(int argc, char *argv[])
@@ -123,15 +116,19 @@ int main(int argc, char *argv[])
   int portClient_data;
 
   FILE* fichier;
+  int filedescriptor;
+  char nomfichier[64];
+  int taillefichier;
+
   int online = 1;
   int unreceived;
   int numSequence;
   char sendBuffer[BUFFER_TAILLE];
   char recvBuffer[BUFFER_TAILLE];
-  char ligne[BUFFER_TAILLE-7];
+  char bloc[BUFFER_TAILLE-6];
+  char typeBuffer[7];
+  char strSequence[7];
   int selret, isInit;
-  const char* espace = " ";
-  const char* underscore = "_";
 
   //Descripteur
   fd_set socket_set;
@@ -176,6 +173,8 @@ int main(int argc, char *argv[])
           sendto(socketServUDP, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
           //Attente pour le ACK
           FD_SET(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
+          timeout.tv_sec = TIMEOUT_SECONDS;
+          timeout.tv_usec = TIMEOUT_MICRO;
           selret = select(5,&socket_set,NULL,NULL,&timeout);
           if (selret<0)
           {
@@ -199,70 +198,63 @@ int main(int argc, char *argv[])
       portClient_data = ntohs(adresse_data.sin_port);
       printf("Adresse = %s\n",ipClient_data);
       printf("Port = %i\n",portClient_data);
-      //test premier message d'un envoi
-      if(strstr(recvBuffer, " BEGIN") != NULL) {
-        numSequence = rand()/10000;
+      numSequence = rand()/10000;
+      //récuperation nom de fichier
+      memcpy(nomfichier,recvBuffer,min(BUFFER_TAILLE,64));
+      //Ouverture fichier
+      fichier = fopen(nomfichier, "r");
+      printf("%s\n",nomfichier);
+      if (fichier==NULL)
+      {
+        printf("Erreur ouverture fichier !\n");
+        //TODO : envoyer "erreur" pour que le client ferme la connexion
+        return -1;
+      }
+      //lecture du fichier en UNE FOIS
+      //Récupération informations sur le fichier
+      struct stat carac;
+      filedescriptor = fileno(fichier);
+      fstat(filedescriptor, &carac);
+      taillefichier = carac.st_size;
+      //attribution espace fichier
+      printf("Taille du fichier : %i\n",taillefichier);
+      char* file=(char*)malloc(taillefichier+3); //Allocation d'un tableau comportant les pointeurs des lignes
+      if (file==0)
+      {
+        printf("Erreur d'allocation.\n");
+        return(-1);
+      }
+      else printf("Allocation réussie.\n");
+      printf("Taille file : %ld\n",sizeof(file));
+      fread(file,1,taillefichier,fichier); //lecture du fichier en une seule FOIS
+      printf("Copie réussie.\n");
+      fclose(fichier);
 
-        //oublie pas ça fait 6 octets obligatoires
-        
-        //Ouverture fichier
-        fichier = fopen("img_serv.jpg", "r");
-        if (fichier==NULL)
-        {
-          printf("Erreur ouverture fichier !!");
-          //TODO : envoyer "erreur" pour que le client ferme la connexion
-          return 0;
-        }
-
-        //Boucle d'envoi du fichier (ici textuel)
-        while (fread(ligne,1,BUFFER_TAILLE-7, fichier) == BUFFER_TAILLE-7){
-          //Traitement de la ligne : pour le bien de l'envoi, les espaces du message doivent être convertis en underscore
-          replace_str(ligne,espace,underscore);
-          //envoi et attente de l'ACK
-          numSequence++;
-          sprintf(sendBuffer,"%i %s",numSequence,ligne);
-          //printf("%s\n",sendBuffer);
-          //Boucle d'envoi d'un message et de l'attente de son ack
-          unreceived = 1;
-          while(unreceived){
-            sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
-            //Attente Ack
-            FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
-            selret = select(5,&socket_set,NULL,NULL,&timeout);
-            if (selret<0)
-            {
-              perror("Erreur de select");
-              return -1;
-            }
-            else if (selret == 0) fError(1);
-            else if (selret != 0) {
-              //Vérification nature du message reçu
-              recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-              printf("Reçu UDP : %s\n",recvBuffer);
-              if(!((strstr(recvBuffer, "ACK") != NULL) && (get_numSequence(recvBuffer) == numSequence))) fError(2);
-              else{
-                //message bien reçu et acknowlegded
-                unreceived = 0;
-                fSuccess();
-              }
-            }
-          }
-        }
-
-        //Fin du fichier atteint : procédure end
-        printf("fin du fichier\n");
+      //Boucle d'envoi du fichier
+      int i = 0;
+      while( i < taillefichier){
+        i += BUFFER_TAILLE-7;
+        //SI FIN DU FICHIER DEPASSEE
+        if(i>taillefichier) i=taillefichier;
+        //copie des octets à envoyer
+        memcpy(bloc,file+i,BUFFER_TAILLE-7);
+        //ajout numéro de séquence
         numSequence++;
-        unreceived = 1;
+        sprintf(typeBuffer,"000000"); //Base du numéro de séquence
+        sprintf(strSequence,"%i",numSequence); //Numéro de séquence en str
+        char *ptr = typeBuffer + (6-strlen(strSequence)); //Pointeur du début d'écriture pour le numéro de séquence
+        memcpy(ptr,strSequence,strlen(strSequence)); //Ecriture au ponteur
+        printf("Numéro de séquence : %s\n",typeBuffer);
         memset(sendBuffer, 0, sizeof(sendBuffer));
-        //Envoi du END et attente ENDACK
-        sprintf(sendBuffer,"%i END",numSequence);
-        sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
-        //Attente ENDACK
-        numSequence++;
+        sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
+        //Boucle d'envoi d'un message et de l'attente de son ack
+        unreceived = 1;
         while(unreceived){
-          sendto(socketServUDP, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
-          //Attente pour le ACK
+          sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
+          //Attente Ack
           FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
+          timeout.tv_sec = TIMEOUT_SECONDS;
+          timeout.tv_usec = TIMEOUT_MICRO;
           selret = select(5,&socket_set,NULL,NULL,&timeout);
           if (selret<0)
           {
@@ -274,19 +266,23 @@ int main(int argc, char *argv[])
             //Vérification nature du message reçu
             recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
             printf("Reçu UDP : %s\n",recvBuffer);
-            if(!((strstr(recvBuffer, "ENDACK") != NULL) && (get_numSequence(recvBuffer) == numSequence))) fError(2);
-            else unreceived = 0;
+            printf("Ack reçu : %i\n",get_numSequence(recvBuffer,typeBuffer));
+            if(!((strstr(recvBuffer, "ACK") != NULL) && (get_numSequence(recvBuffer,typeBuffer) == numSequence))) fError(2);
+            else{
+              //message bien reçu et acknowlegded
+              printf("Ack number %i received.\n",numSequence);
+              unreceived = 0;
+              fSuccess();
+            }
           }
         }
-
-        //envoi ACK et fin de transmission
-        printf("ENDACK reçu\n");
-        numSequence++;
-        memset(sendBuffer, 0, sizeof(sendBuffer));
-        sprintf(sendBuffer,"%i ACK",numSequence);
-        sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
-        fclose(fichier); // On ferme le fichier qui a été ouvert
       }
+      //Fin du fichier atteint : procédure end
+      printf("fin du fichier\n");
+      sprintf(sendBuffer,"FIN");
+      sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
+      free(file); // On libère l'espace attribué pour la lecture
+
     }
   }
   return 0;

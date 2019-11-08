@@ -14,7 +14,7 @@
 #define DOMAIN AF_INET
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
-#define BUFFER_TAILLE 63
+#define BUFFER_TAILLE 1500
 #define TIMEOUT_SECONDS 1
 #define TIMEOUT_MICRO 0
 
@@ -26,9 +26,7 @@
 
 int get_numSequence(char* buffer, char* buffer2){
   //Récupération num séquence
-  //note : effectuer strtok après l'exécution de la fonction permettra de
-  //faire pointer le pointeur sur la suite du message
-  memcpy(buffer2,buffer,6); //pointeur vers "numSequence"
+  memcpy(buffer2,buffer,6);
   int numSequence = atoi(buffer2);
   return numSequence;
 }
@@ -36,8 +34,7 @@ int get_numSequence(char* buffer, char* buffer2){
 void fError(int type){
   //Fonction se déclenchant lors d'un timeout ou erreur de numSequence lors de l'ack.
   //Utilisée pour la congestion lors de la réception d'un fichier.
-  if (type == 1) printf("Timeout !\n");
-  else if (type == 2) printf("Numéro de séquence invalide !\n");
+
 }
 
 void fSuccess(){
@@ -56,7 +53,7 @@ int main(int argc, char *argv[])
   }
 
   char nomfichier[64];
-  memcpy(&argv[3],nomfichier,strlen(argv[3]));
+  sprintf(nomfichier,"%s",argv[3]);
 
   char nomfichierserverside[69];
   sprintf(nomfichierserverside,"recp_%s",nomfichier);
@@ -133,6 +130,8 @@ int main(int argc, char *argv[])
     while(unreceived){
       sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
       //On attend un SYNACK
+      timeout.tv_sec = TIMEOUT_SECONDS;
+      timeout.tv_usec = TIMEOUT_MICRO;
       FD_SET(socketClient, &socket_set); //Activation du bit associé à au socket UDP
       selret = select(4,&socket_set,NULL,NULL,&timeout);
       if (selret<0)
@@ -169,17 +168,18 @@ int main(int argc, char *argv[])
       //Envoi premier MESSAGE : nom du fichier désiré
       memset(sendBuffer, 0, sizeof(sendBuffer));
       sprintf(sendBuffer, "%s",nomfichier);
+      printf("envoi nom fichier : %s\n",sendBuffer);
       sendto(socketClient, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse, taille_adresse);
-      //Receptions
+      //Reception premier message
       recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
       //premier message : on récupère numseq
       numSequence = get_numSequence(recvBuffer,bufferType);
-      while(!strcmp(recvBuffer,"FIN"))
+      while(strcmp(recvBuffer,"FIN")) //JUsqu'à ce qu'on reçoive FIN
       {
         printf("ligne reçue\n");
         printf("Reçu UDP : %s\n",recvBuffer);
         while(!(get_numSequence(recvBuffer,bufferType)==numSequence)){
-          printf("numSequence invalide\n");
+          //printf("numSequence invalide : %i\n",numSequence);
           sendto(socketClient, &sendBuffer, strlen(sendBuffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
           recvfrom(socketClient, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse, &taille_adresse);
         }
@@ -188,6 +188,7 @@ int main(int argc, char *argv[])
         //Traitement de la ligne : pour le bien de l'envoi, les espaces du message ont été convertis en underscore
         printf("%s\n",ligne);
         fputs(ligne, fichier);
+        printf("Ecriture.\n");
         //envoi ack
         //numSequence++; -> on n'incrémente pas, on acknowledge le paquet précédent
         memset(sendBuffer, 0, sizeof(sendBuffer));
