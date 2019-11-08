@@ -1,5 +1,5 @@
 //todo : dissocier lecture ficher et envoi
-
+//démarrer thread avant synack
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -166,14 +166,12 @@ int main(int argc, char *argv[])
       printf("Port = %i\n",portClient);
 
       //initialisation de connexion (reception SYN)
-      if(strstr(recvBuffer, " SYN") != NULL) {
+      if(strcmp(recvBuffer, "SYN") == 0) {
         //Récupération num séquence
-        numSequence = get_numSequence(recvBuffer);
         //Envoi du SYNACK
         unreceived = 1;
-        numSequence++;
         memset(sendBuffer, 0, sizeof(sendBuffer));
-        sprintf(sendBuffer,"%i SYNACK",numSequence);
+        sprintf(sendBuffer,"SYN-ACK%i",atoi(argv[2]));
         while(unreceived){
           sendto(socketServUDP, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
           //Attente pour le ACK
@@ -184,21 +182,9 @@ int main(int argc, char *argv[])
             perror("Erreur de select");
             return -1;
           }
-          else if (selret != 0) unreceived = 0;
-        }
-        if (selret !=0){
-          numSequence++;
-          recvfrom(socketServUDP, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_arrivee, &taille_arrivee);
-          if(strstr(recvBuffer," ACK")){
-            while(!(get_numSequence(recvBuffer) == numSequence)){
-              printf("numSequence invalide\n");
-              sendto(socketServUDP, &sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
-              recvfrom(socketServUDP, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_arrivee, &taille_arrivee);
-            }
-            numSequence++;
-            memset(sendBuffer, 0, sizeof(sendBuffer));
-            sprintf(sendBuffer,"%i %i",numSequence,atoi(argv[2])); //Envoi du port de données
-            sendto(socketServUDP, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
+          else if ((selret != 0)) {
+            recvfrom(socketServUDP, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_arrivee, &taille_arrivee);
+            if(strcmp(recvBuffer,"ACK")==0) unreceived = 0;
           }
         }
       }
@@ -215,10 +201,12 @@ int main(int argc, char *argv[])
       printf("Port = %i\n",portClient_data);
       //test premier message d'un envoi
       if(strstr(recvBuffer, " BEGIN") != NULL) {
-        //Récupération num séquence
-        numSequence = get_numSequence(recvBuffer);
+        numSequence = rand()/10000;
+
+        //oublie pas ça fait 6 octets obligatoires
+        
         //Ouverture fichier
-        fichier = fopen("fichier_serveur.txt", "r");
+        fichier = fopen("img_serv.jpg", "r");
         if (fichier==NULL)
         {
           printf("Erreur ouverture fichier !!");
@@ -227,7 +215,7 @@ int main(int argc, char *argv[])
         }
 
         //Boucle d'envoi du fichier (ici textuel)
-        while (fgets(ligne, BUFFER_TAILLE-7, fichier) != NULL){
+        while (fread(ligne,1,BUFFER_TAILLE-7, fichier) == BUFFER_TAILLE-7){
           //Traitement de la ligne : pour le bien de l'envoi, les espaces du message doivent être convertis en underscore
           replace_str(ligne,espace,underscore);
           //envoi et attente de l'ACK
