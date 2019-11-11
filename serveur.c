@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
       fclose(fichier);
 
       //Boucle d'envoi du fichier
-      int i = 0;
+      int i = - (BUFFER_TAILLE - 6); //Première itération de la boucle : i = 0
       while( i < taillefichier){
         i += BUFFER_TAILLE-6;
         //SI FIN DU FICHIER DEPASSEE
@@ -249,6 +249,7 @@ int main(int argc, char *argv[])
         memset(recvBuffer, 0, sizeof(recvBuffer));
         sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
         printf("%s\n",sendBuffer);
+        printf("%li\n",strlen(sendBuffer));
         //Boucle d'envoi d'un message et de l'attente de son ack
         unreceived = 1;
         while(unreceived){

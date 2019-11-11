@@ -178,6 +178,7 @@ int main(int argc, char *argv[])
       {
         printf("ligne reçue\n");
         printf("Reçu UDP : %s\n",recvBuffer);
+        printf("%li\n",strlen(recvBuffer));
         while(!(get_numSequence(recvBuffer,bufferType)==numSequence)){
           //printf("numSequence invalide : %i\n",numSequence);
           sendto(socketClient, &sendBuffer, strlen(sendBuffer), 0, (const struct sockaddr *) &adresse, taille_adresse);
