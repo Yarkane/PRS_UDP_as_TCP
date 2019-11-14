@@ -198,7 +198,8 @@ int main(int argc, char *argv[])
       portClient_data = ntohs(adresse_data.sin_port);
       printf("Adresse = %s\n",ipClient_data);
       printf("Port = %i\n",portClient_data);
-      numSequence = rand()/10000;
+      //numSequence = rand()/10000;
+      numSequence = 0;
       //récuperation nom de fichier
       memcpy(nomfichier,recvBuffer,min(BUFFER_TAILLE,64));
       //Ouverture fichier
