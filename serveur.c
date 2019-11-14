@@ -18,8 +18,8 @@
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
 #define BUFFER_TAILLE 128
-#define TIMEOUT_SECONDS 1
-#define TIMEOUT_MICRO 0
+#define TIMEOUT_SECONDS 0
+#define TIMEOUT_MICRO 5000
 
 /*
   DEUX REGLEs SUR LE FICHIER A envoyer
@@ -235,6 +235,7 @@ int main(int argc, char *argv[])
       int i = - (BUFFER_TAILLE - 6); //Première itération de la boucle : i = 0
       while( i < taillefichier){
         i += BUFFER_TAILLE-6;
+        printf("Position dans le fichier : %i\n",i);
         //SI FIN DU FICHIER DEPASSEE
         if(i>taillefichier) i=taillefichier;
         //copie des octets à envoyer
@@ -248,9 +249,13 @@ int main(int argc, char *argv[])
         printf("Numéro de séquence : %s\n",typeBuffer);
         memset(sendBuffer, 0, sizeof(sendBuffer));
         memset(recvBuffer, 0, sizeof(recvBuffer));
-        sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
-        printf("%s\n",sendBuffer);
-        printf("%li\n",strlen(sendBuffer));
+        // sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
+        //La ligne précédente utilise sprintf. Cela posera problème si l'on a un caractère \0 .
+        memcpy(sendBuffer,typeBuffer,6);
+        memcpy(sendBuffer+6,bloc,BUFFER_TAILLE-6);
+        //Avec memcpy, aucun problème de caractère de fin de string
+        //printf("%s\n",sendBuffer);
+        //printf("%li\n",strlen(sendBuffer));
         //Boucle d'envoi d'un message et de l'attente de son ack
         unreceived = 1;
         while(unreceived){
@@ -269,8 +274,6 @@ int main(int argc, char *argv[])
           else if (selret != 0) {
             //Vérification nature du message reçu
             recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-            printf("Reçu UDP : %s\n",recvBuffer);
-            printf("Ack reçu : %i\n",get_numSequence(recvBuffer,typeBuffer));
             if(!((strstr(recvBuffer, "ACK") != NULL) && (get_numSequence(recvBuffer,typeBuffer) == numSequence))) fError(2);
             else{
               //message bien reçu et acknowlegded
