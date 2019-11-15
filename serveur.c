@@ -314,36 +314,6 @@ int main(int argc, char *argv[])
         }
       }
 
-        /*
-        unreceived = 1;
-        while(unreceived){
-          //TODO : en fonction de la taille de la fenêtre et de la nécessité de renvoyer ou non,
-          //trouver un moyen de "moduler" les envois
-          sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
-          //Attente Ack
-          FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
-          timeout.tv_usec = timeToWait; //Initialisation du timer
-          selret = select(5,&socket_set,NULL,NULL,&timeout);
-          if (selret<0)
-          {
-            perror("[!] Select Error");
-            return -1;
-          }
-          else if (selret == 0) fError(1,window,nWrongAcks);
-          else if (selret != 0) {
-            //Vérification nature du message reçu
-            recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-            if(!((strstr(recvBuffer, "ACK") != NULL) && (get_beginWindow(recvBuffer,typeBuffer) == beginWindow))) fError(2,window,nWrongAcks); //Fast retransmit : 3 ack dupliqués pour renvoyer !
-            else{
-              //message bien reçu et acknowlegded
-              printf("[+] Ack number %i received.\n",beginWindow);
-              nWrongAcks = 0;
-              unreceived = 0;
-              fSuccess();
-            }
-          }
-        }
-        */
       //Fin du fichier atteint : procédure end
       printf("end of file\n");
       memset(sendBuffer, 0, sizeof(sendBuffer));
