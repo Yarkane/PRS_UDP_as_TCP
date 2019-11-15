@@ -18,7 +18,7 @@
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
 #define BUFFER_TAILLE 128
-#define ALPHA 10 //Facteur arbitraire : timeout = alpha * rtt
+#define ALPHA 100 //Facteur arbitraire : timeout = alpha * rtt
 
 /*
   DEUX REGLEs SUR LE FICHIER A envoyer
@@ -26,23 +26,11 @@
     - PAS DE LIGNE à moins de 2 caractères
 */
 
-void fError(int type){
-  //Fonction se déclenchant lors d'un timeout ou erreur de numSequence lors de l'ack.
-  //Utilisée pour la congestion lors de l'envoi d'un fichier
-  if (type==1) printf("[!] Timeout : segment dropped by network.\n");
-  else if (type==2) printf("[!] Wrong ack received.\n");
-}
-
-void fSuccess(){
-  //Fonction se déclenchant lors de la reception d'un Ack.
-  //Utilisée pour la congestion lors de l'envoi d'un fichier.
-}
-
-int get_numSequence(char* buffer, char* buffer2){
+int get_beginWindow(char* buffer, char* buffer2){
   //Récupération num séquence
   memcpy(buffer2,buffer+3,6);
-  int numSequence = atoi(buffer2);
-  return numSequence;
+  int beginWindow = atoi(buffer2);
+  return beginWindow;
 }
 
 int min(int a, int b){
@@ -121,16 +109,25 @@ int main(int argc, char *argv[])
 
   int online = 1;
   int unreceived;
-  int numSequence;
+  int problem;
   char sendBuffer[BUFFER_TAILLE];
   char recvBuffer[BUFFER_TAILLE];
-  char bloc[BUFFER_TAILLE-6];
   char typeBuffer[7];
   char strSequence[7];
   int selret, isInit;
+
   float timer;
   float RoundTripTime;
   int timeToWait;
+
+  //Définition de la window
+  //Window = espace entre beginWindow et endWindow
+  int beginWindow = 0; //Numéro de séquence partagé entre client et serveur
+  int endWindow = 0; //Numéro de séquence des messages envoyés / à envoyer
+
+  //Controle de congestion
+  int windowSize = 1; //S'incrémente avec slowstart
+  int nWrongAcks = 0; //Compteur de ACK "inappropriés"
 
   //Descripteur
   fd_set socket_set;
@@ -207,8 +204,9 @@ int main(int argc, char *argv[])
       portClient_data = ntohs(adresse_data.sin_port);
       printf("Adresse = %s\n",ipClient_data);
       printf("Port = %i\n",portClient_data);
-      //numSequence = rand()/10000;
-      numSequence = 0;
+      //beginWindow = rand()/10000;
+      beginWindow = 0;
+      endWindow = 0;
       //récuperation nom de fichier
       memcpy(nomfichier,recvBuffer,min(BUFFER_TAILLE,64));
       //Ouverture fichier
@@ -228,7 +226,7 @@ int main(int argc, char *argv[])
       taillefichier = carac.st_size;
       //attribution espace fichier
       printf("Taille du fichier : %i\n",taillefichier);
-      char* file=(char*)malloc(taillefichier+3); //Allocation d'un tableau comportant les pointeurs des lignes
+      char* file=(char*)malloc(taillefichier+3); //Allocation d'un tableau comportant le contenu du fichier
       if (file==0)
       {
         printf("Erreur d'allocation.\n");
@@ -240,34 +238,87 @@ int main(int argc, char *argv[])
       printf("Copie réussie.\n");
       fclose(fichier);
 
+      //taillefichier converti en nombre de segments à envoyer
+      int restefichier = taillefichier%(BUFFER_TAILLE - 6);
+      taillefichier = taillefichier/(BUFFER_TAILLE - 6) + 1;
+      printf("Nb de segments : %i\n",taillefichier);
+
       //Boucle d'envoi du fichier
-      int i = - (BUFFER_TAILLE - 6); //Première itération de la boucle : i = 0
-      while( i < taillefichier){
-        i += BUFFER_TAILLE-6;
-        printf("position in file : %i\n",i);
-        //SI FIN DU FICHIER DEPASSEE
-        if(i>taillefichier) i=taillefichier;
-        //copie des octets à envoyer
-        memcpy(bloc,file+i,BUFFER_TAILLE-6);
-        //ajout numéro de séquence
-        numSequence++;
-        sprintf(typeBuffer,"000000"); //Base du numéro de séquence
-        sprintf(strSequence,"%i",numSequence); //Numéro de séquence en str
-        char *ptr = typeBuffer + (6-strlen(strSequence)); //Pointeur du début d'écriture pour le numéro de séquence
-        memcpy(ptr,strSequence,strlen(strSequence)); //Ecriture au ponteur
-        printf("Numéro de séquence : %s\n",typeBuffer);
-        memset(sendBuffer, 0, sizeof(sendBuffer));
-        memset(recvBuffer, 0, sizeof(recvBuffer));
-        // sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
-        //La ligne précédente utilise sprintf. Cela posera problème si l'on a un caractère \0 .
-        memcpy(sendBuffer,typeBuffer,6);
-        memcpy(sendBuffer+6,bloc,BUFFER_TAILLE-6);
-        //Avec memcpy, aucun problème de caractère de fin de string
-        //printf("%s\n",sendBuffer);
-        //printf("%li\n",strlen(sendBuffer));
-        //Boucle d'envoi d'un message et de l'attente de son ack
+      int i;
+      windowSize = 1;
+      while(beginWindow < taillefichier){
+        endWindow = beginWindow + windowSize;
+        if (endWindow > taillefichier){
+          endWindow = taillefichier;
+        }
+        //Boucle de transmission
+        for(int j = beginWindow; j<=endWindow; j++){
+          i = (BUFFER_TAILLE - 6) * j;
+          //Construction du message
+          sprintf(typeBuffer,"000000"); //Base du numéro de séquence
+          sprintf(strSequence,"%i",j); //Numéro de séquence en str
+          char *ptr = typeBuffer + (6-strlen(strSequence)); //Pointeur du début d'écriture pour le numéro de séquence
+          memcpy(ptr,strSequence,strlen(strSequence)); //Ecriture au ponteur
+          printf("Numéro de séquence : %s\n",typeBuffer);
+          memset(sendBuffer, 0, sizeof(sendBuffer));
+          memset(recvBuffer, 0, sizeof(recvBuffer));
+          // sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
+          //La ligne précédente utilise sprintf. Cela posera problème si l'on a un caractère \0 .
+          memcpy(sendBuffer,typeBuffer,6);
+          if (j == taillefichier) memcpy(sendBuffer+6,file+i,restefichier); //Si moins de BUFFER_TAILLE - 6 à envoyer
+          else memcpy(sendBuffer+6,file+i,BUFFER_TAILLE-6);
+          //Envoi du message
+          int a;
+          if (j == taillefichier) a = sendto(socketServUDP_data, sendBuffer, restefichier + 6, 0, (const struct sockaddr *) &adresse_data, taille_data);
+          else a = sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
+          printf("%i\n",a);
+        }
+
+        //Boucle de réception
+        problem = 0;
+        while((!problem) && (beginWindow!=endWindow)){
+          FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
+          timeout.tv_usec = timeToWait; //Initialisation du timer
+          selret = select(5,&socket_set,NULL,NULL,&timeout);
+          if (selret<0)
+          {
+            perror("[!] Select Error");
+            return -1;
+          }
+          else if (selret == 0) {
+            windowSize = 1;
+            problem = 1;
+            printf("[-] Timeout.\n");
+          }
+          else if (selret != 0) {
+            //Vérification nature du message reçu
+            recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+            if(!((strstr(recvBuffer, "ACK") != NULL) && (get_beginWindow(recvBuffer,typeBuffer) >= beginWindow))) {
+              nWrongAcks++;
+              if (nWrongAcks==3){
+                problem = 1;
+                nWrongAcks = 0;
+                windowSize = 1;
+                printf("[-] 3 wrong acks.\n");
+              }
+            }
+            else{
+              //message bien reçu et acknowlegded
+              printf("[+] Ack number %i received.\n",beginWindow);
+              nWrongAcks = 0;
+              beginWindow = get_beginWindow(recvBuffer,typeBuffer) + 1;
+              printf("beginWindow du client : %i\n",beginWindow);
+              windowSize++;
+            }
+          }
+        }
+      }
+
+        /*
         unreceived = 1;
         while(unreceived){
+          //TODO : en fonction de la taille de la fenêtre et de la nécessité de renvoyer ou non,
+          //trouver un moyen de "moduler" les envois
           sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
           //Attente Ack
           FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
@@ -278,20 +329,21 @@ int main(int argc, char *argv[])
             perror("[!] Select Error");
             return -1;
           }
-          else if (selret == 0) fError(1);
+          else if (selret == 0) fError(1,window,nWrongAcks);
           else if (selret != 0) {
             //Vérification nature du message reçu
             recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-            if(!((strstr(recvBuffer, "ACK") != NULL) && (get_numSequence(recvBuffer,typeBuffer) == numSequence))) fError(2); //Fast retransmit : 3 ack dupliqués pour renvoyer !
+            if(!((strstr(recvBuffer, "ACK") != NULL) && (get_beginWindow(recvBuffer,typeBuffer) == beginWindow))) fError(2,window,nWrongAcks); //Fast retransmit : 3 ack dupliqués pour renvoyer !
             else{
               //message bien reçu et acknowlegded
-              printf("+ Ack number %i received.\n",numSequence);
+              printf("[+] Ack number %i received.\n",beginWindow);
+              nWrongAcks = 0;
               unreceived = 0;
               fSuccess();
             }
           }
         }
-      }
+        */
       //Fin du fichier atteint : procédure end
       printf("end of file\n");
       memset(sendBuffer, 0, sizeof(sendBuffer));
