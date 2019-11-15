@@ -12,13 +12,13 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/stat.h>
+#include <math.h>
 
-#define DOMAIN AF_INET
+#define DOMAINE AF_INET
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
 #define BUFFER_TAILLE 128
-#define TIMEOUT_SECONDS 0
-#define TIMEOUT_MICRO 5000
+#define ALPHA 10 //Facteur arbitraire : timeout = alpha * rtt
 
 /*
   DEUX REGLEs SUR LE FICHIER A envoyer
@@ -29,13 +29,13 @@
 void fError(int type){
   //Fonction se déclenchant lors d'un timeout ou erreur de numSequence lors de l'ack.
   //Utilisée pour la congestion lors de l'envoi d'un fichier
-
+  if (type==1) printf("[!] Timeout : segment dropped by network.\n");
+  else if (type==2) printf("[!] Wrong ack received.\n");
 }
 
 void fSuccess(){
   //Fonction se déclenchant lors de la reception d'un Ack.
   //Utilisée pour la congestion lors de l'envoi d'un fichier.
-  printf("ACK received.\n");
 }
 
 int get_numSequence(char* buffer, char* buffer2){
@@ -63,13 +63,13 @@ int main(int argc, char *argv[])
   //Définition adresse UDP de connexion :
   struct sockaddr_in adresseUDP; //Structure contenant addresse serveur
   memset((char*)&adresseUDP,0,sizeof(adresseUDP));
-  adresseUDP.sin_family = DOMAIN;
+  adresseUDP.sin_family = DOMAINE;
   adresseUDP.sin_port = htons(atoi(argv[1])); //Port du serveur, converti en valeur réseau
   adresseUDP.sin_addr.s_addr = htonl(INADDR_ANY);
 
   //Définition socket connexion udp
   int socketServUDP;
-  if( (socketServUDP = socket(DOMAIN,TYPE,PROTOCOL)) == -1)
+  if( (socketServUDP = socket(DOMAINE,TYPE,PROTOCOL)) == -1)
   {
     perror("Creation de socket impossible\n");
   	return -1;
@@ -81,13 +81,13 @@ int main(int argc, char *argv[])
   //Définition adresse UDP de data
   struct sockaddr_in adresseUDP_data; //Structure contenant addresse serveur
   memset((char*)&adresseUDP_data,0,sizeof(adresseUDP_data));
-  adresseUDP_data.sin_family = DOMAIN;
+  adresseUDP_data.sin_family = DOMAINE;
   adresseUDP_data.sin_port = htons(atoi(argv[2])); //Port du serveur, converti en valeur réseau
   adresseUDP_data.sin_addr.s_addr = htonl(INADDR_ANY);
 
   //Définition socket UDP de data
   int socketServUDP_data;
-  if( (socketServUDP_data = socket(DOMAIN,TYPE,PROTOCOL)) == -1)
+  if( (socketServUDP_data = socket(DOMAINE,TYPE,PROTOCOL)) == -1)
   {
     perror("Creation de socket impossible\n");
     return -1;
@@ -128,14 +128,16 @@ int main(int argc, char *argv[])
   char typeBuffer[7];
   char strSequence[7];
   int selret, isInit;
+  float timer;
+  float RoundTripTime;
+  int timeToWait;
 
   //Descripteur
   fd_set socket_set;
   FD_ZERO(&socket_set);
   //timeoute
   struct timeval timeout;
-  timeout.tv_sec = TIMEOUT_SECONDS;
-  timeout.tv_usec = TIMEOUT_MICRO;
+  //La valeur du timeout sera renseignée après calcul du RTT
 
 
   while(online) //Boucle de connexion
@@ -170,10 +172,10 @@ int main(int argc, char *argv[])
         sprintf(sendBuffer,"SYN-ACK%i",atoi(argv[2]));
         while(unreceived){
           sendto(socketServUDP, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
+          //Message envoyé ! On initialise un timer pour estimer le RTT
+          timer = clock();
           //Attente pour le ACK
           FD_SET(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
-          timeout.tv_sec = TIMEOUT_SECONDS;
-          timeout.tv_usec = TIMEOUT_MICRO;
           selret = select(5,&socket_set,NULL,NULL,&timeout);
           if (selret<0)
           {
@@ -185,6 +187,14 @@ int main(int argc, char *argv[])
             if(strcmp(recvBuffer,"ACK")==0) unreceived = 0;
           }
         }
+        //Ack bel et bien Reçu : on arrête le timer
+        RoundTripTime = (clock() - timer)/CLOCKS_PER_SEC; //CLOCKS_PER_SEC : valeur initialisée dans time.h, nb de ticks dans une seconde
+        printf("RTT : %f\n",RoundTripTime);
+        //Choix de la valeur du timeout
+        timeToWait = round(1000000 * RoundTripTime * ALPHA); //Facteur arbitraire, en microsecondes
+        printf("Timeout (microseconds) : %i\n",timeToWait);
+        timeout.tv_sec = 0;
+        timeout.tv_usec = timeToWait; //Initialisation du timer (à répéter avant chaque select)
       }
     }
     else{
@@ -206,7 +216,7 @@ int main(int argc, char *argv[])
       printf("%s\n",nomfichier);
       if (fichier==NULL)
       {
-        printf("Erreur ouverture fichier !\n");
+        printf("[!] File not found !\n");
         //On enverra le contenu de "error.txt"
         fichier = fopen("error.txt","r");
       }
@@ -234,7 +244,7 @@ int main(int argc, char *argv[])
       int i = - (BUFFER_TAILLE - 6); //Première itération de la boucle : i = 0
       while( i < taillefichier){
         i += BUFFER_TAILLE-6;
-        printf("Position dans le fichier : %i\n",i);
+        printf("position in file : %i\n",i);
         //SI FIN DU FICHIER DEPASSEE
         if(i>taillefichier) i=taillefichier;
         //copie des octets à envoyer
@@ -261,22 +271,21 @@ int main(int argc, char *argv[])
           sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
           //Attente Ack
           FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
-          timeout.tv_sec = TIMEOUT_SECONDS;
-          timeout.tv_usec = TIMEOUT_MICRO;
+          timeout.tv_usec = timeToWait; //Initialisation du timer
           selret = select(5,&socket_set,NULL,NULL,&timeout);
           if (selret<0)
           {
-            perror("Erreur de select");
+            perror("[!] Select Error");
             return -1;
           }
           else if (selret == 0) fError(1);
           else if (selret != 0) {
             //Vérification nature du message reçu
             recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
-            if(!((strstr(recvBuffer, "ACK") != NULL) && (get_numSequence(recvBuffer,typeBuffer) == numSequence))) fError(2);
+            if(!((strstr(recvBuffer, "ACK") != NULL) && (get_numSequence(recvBuffer,typeBuffer) == numSequence))) fError(2); //Fast retransmit : 3 ack dupliqués pour renvoyer !
             else{
               //message bien reçu et acknowlegded
-              printf("Ack number %i received.\n",numSequence);
+              printf("+ Ack number %i received.\n",numSequence);
               unreceived = 0;
               fSuccess();
             }
@@ -284,11 +293,12 @@ int main(int argc, char *argv[])
         }
       }
       //Fin du fichier atteint : procédure end
-      printf("fin du fichier\n");
+      printf("end of file\n");
+      memset(sendBuffer, 0, sizeof(sendBuffer));
       sprintf(sendBuffer,"FIN");
       sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
       free(file); // On libère l'espace attribué pour la lecture
-
+      online = 0; //Arrêt du serveur
     }
   }
   return 0;
