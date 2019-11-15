@@ -1,5 +1,4 @@
-//todo : dissocier lecture ficher et envoi
-//démarrer thread avant synack
+//todo : fork avant envoi synack
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -208,8 +207,8 @@ int main(int argc, char *argv[])
       if (fichier==NULL)
       {
         printf("Erreur ouverture fichier !\n");
-        //TODO : envoyer "erreur" pour que le client ferme la connexion
-        return -1;
+        //On enverra le contenu de "error.txt"
+        fichier = fopen("error.txt","r");
       }
       //lecture du fichier en UNE FOIS
       //Récupération informations sur le fichier
