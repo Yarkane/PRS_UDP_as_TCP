@@ -1,0 +1,9 @@
+Note : les serveurs que l'on développera devront être "adaptés" aux clients qu'on utilise.
+Il est donc important de caractériser leurs comportements : certains mécanismes seront peu utiles et même ralentiront le débit !
+
+VALEURS CHELOU
+
+Serveur_SLOW_START :
+
+client1 :
+client2 :
