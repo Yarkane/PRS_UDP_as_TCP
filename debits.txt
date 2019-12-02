@@ -1,9 +1,18 @@
 Note : les serveurs que l'on développera devront être "adaptés" aux clients qu'on utilise.
 Il est donc important de caractériser leurs comportements : certains mécanismes seront peu utiles et même ralentiront le débit !
 
-VALEURS CHELOU
-
-Serveur_SLOW_START :
+Serveur_SLOW_START (alpha = 100) :
 
 client1 :
+Total bytes received 254849
+
+real	0m1,762s
+user	0m0,560s
+sys	0m0,322s
+
 client2 :
+Total bytes received 254849
+
+real	0m15,919s
+user	0m2,082s
+sys	0m1,092s
