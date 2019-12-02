@@ -109,18 +109,16 @@ int main(int argc, char *argv[])
   int portIncrement = 0;
 
   int online = 1;
-  int id;
   int unreceived;
   int problem;
   char sendBuffer[BUFFER_TAILLE];
   char recvBuffer[BUFFER_TAILLE];
   char typeBuffer[7];
   char strSequence[7];
-  int selret, isInit;
+  int selret;
 
   float timer;
   double RoundTripTime;
-  double totalTime;
   int timeToWait;
 
   //Définition de la window
@@ -139,9 +137,11 @@ int main(int argc, char *argv[])
   struct timeval timeout;
   //La valeur du timeout sera renseignée après calcul du RTT
 
+  int id = getpid();
 
   while(online) //Boucle de connexion
   {
+    /*
     FD_SET(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
     selret = select(5,&socket_set,NULL,NULL,NULL);
     if (selret<0)
@@ -150,9 +150,9 @@ int main(int argc, char *argv[])
       return -1;
     }
     isInit = FD_ISSET(socketServUDP,&socket_set); //SI MESSAGE UDP
-    if(isInit){
-      //PORT CONNEXION
-      FD_CLR(socketServUDP_data,&socket_set);
+    */
+    if(id != 0){
+      //SERVEUR CONNEXION
       recvfrom(socketServUDP, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_arrivee, &taille_arrivee);
       if(strcmp(recvBuffer,"") != 0) printf("Reçu UDP : %s\n",recvBuffer);
       //recuperation de l'adresse
@@ -167,7 +167,6 @@ int main(int argc, char *argv[])
         //Calcul valeur port
         portIncrement = (portIncrement + 1);
         if (portIncrement > nbPorts) portIncrement = 0;
-        fork();
 
         id = fork();
         if(id<0)
@@ -176,10 +175,10 @@ int main(int argc, char *argv[])
           return -1;
         }
         printf("id : %i\n",id);
-
         if (id == 0) //PRocessus fils :
         {
           int portData = atoi(argv[2]) + portIncrement;
+          printf("PortData : %i\n",portData);
           adresseUDP_data.sin_port = htons(portData); //Port du serveur, converti en valeur réseau
           //Lien entre les deux :
           bind(socketServUDP_data,(struct sockaddr*)&adresseUDP_data,sizeof(adresseUDP_data));
@@ -191,8 +190,9 @@ int main(int argc, char *argv[])
           memset(sendBuffer, 0, sizeof(sendBuffer));
           sprintf(sendBuffer,"SYN-ACK%i",portData);
           while(unreceived){
+            printf("Send Synack.\n");
             sendto(socketServUDP, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_arrivee, taille_arrivee);
-            //Message envoyé ! On initialise un timer pour estimer le RTT + le débit
+            //Message envoyé ! On initialise un timer pour estimer le RTT
             timer = clock();
             //Attente pour le ACK
             FD_SET(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
@@ -221,8 +221,8 @@ int main(int argc, char *argv[])
       }
     }
     else{
-      //PORT DATA
-      FD_CLR(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
+      //PROCESSUS DE TRANSFERT DE FICHIER : fork
+      FD_CLR(socketServUDP, &socket_set); //Desactivation du bit associé à au socket UDP de CONNEXION
       recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
       if(strcmp(recvBuffer,"") != 0) printf("Reçu UDP : %s\n",recvBuffer);
       //recuperation de l'adresse
@@ -273,7 +273,6 @@ int main(int argc, char *argv[])
         printf("Nb de segments : %i\n",taillefichier);
 
         //Boucle d'envoi du fichier
-        timer = clock(); //Réinitialisation du timer
         int i;
         windowSize = 1;
         while(beginWindow < taillefichier){
@@ -351,17 +350,12 @@ int main(int argc, char *argv[])
         sprintf(sendBuffer,"FIN");
         sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
         free(file); // On libère l'espace attribué pour la lecture
-        //Affichage du débit :
-        totalTime = clock() - timer;
-        printf("Ticks : %f\n",totalTime);
-        printf("Clocks per Second: %E\n", (double)CLOCKS_PER_SEC);
-        totalTime = ((double)totalTime)/CLOCKS_PER_SEC; //CLOCKS_PER_SEC : valeur initialisée dans time.h, nb de ticks dans une seconde
-        printf("Total time : %E s\n",totalTime);
-        printf("Folder size : %i B\n",taillefichier*(BUFFER_TAILLE - 6));
-        printf("Rate : %E B/s\n",(float)taillefichier/totalTime);
-        online = 0; //Arrêt du serveur
+
+        close(socketServUDP_data);
+        online = 0; //Arrêt du serveur (fork)
       }
     }
   }
+  printf("[!]END OF FORK\n");
   return 0;
 }
