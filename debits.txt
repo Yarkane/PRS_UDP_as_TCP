@@ -29,3 +29,24 @@ user	0m0,859s
 sys	0m0,432s
 
 client2 :
+20s
+
+------
+
+RTTS :
+
+client1 : 2.5s
+
+client2:
+Total bytes received 254849
+
+real	0m15,299s
+user	0m7,337s
+sys	0m4,237s
+
+PAREMETRES IMPORTANTS :
+
+ALPHA
+ALPHASRTT
+Augmentation du SRTT quand timeout
+valeur initiale du SRTT
