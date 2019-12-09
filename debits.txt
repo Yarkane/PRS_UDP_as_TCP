@@ -16,3 +16,16 @@ Total bytes received 254849
 real	0m15,919s
 user	0m2,082s
 sys	0m1,092s
+
+-------
+
+Congestion avoidance :
+
+client1 :
+Total bytes received 254849
+
+real	0m1,565s
+user	0m0,859s
+sys	0m0,432s
+
+client2 :

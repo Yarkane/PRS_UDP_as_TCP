@@ -1,4 +1,3 @@
-//todo : fork avant envoi synack
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -18,7 +17,7 @@
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
 #define BUFFER_TAILLE 128
-#define ALPHA 100 //Facteur arbitraire : timeout = alpha * rtt
+#define ALPHA 20 //Facteur arbitraire : timeout = alpha * rtt
 
 /*
   DEUX REGLEs SUR LE FICHIER A envoyer
@@ -48,12 +47,17 @@ int min(int a, int b){
   else return b;
 }
 
+int max(int a, int b){
+  if (a>b) return a;
+  else return b;
+}
+
 int main(int argc, char *argv[])
 {
   //Arguments :
   if (argc != 4)
   {
-    printf("Mauvais usage : serveur <port_UDP_connexion> <premier_port_UDP_donnees> <nb_ports_données_disponibles>\n");
+    printf("Bad usage : serveur <port_UDP_connexion> <premier_port_UDP_donnees> <nb_ports_données_disponibles>\n");
     printf("argv[0] : %s\n",argv[0]);
     return 0;
   }
@@ -121,7 +125,7 @@ int main(int argc, char *argv[])
 
   float timer;
   double RoundTripTime;
-  int timeToWait;
+  double timeToWait;
 
   //Définition de la window
   //Window = espace entre beginWindow et endWindow
@@ -129,7 +133,8 @@ int main(int argc, char *argv[])
   int endWindow = 0; //Numéro de séquence des messages envoyés / à envoyer
 
   //Controle de congestion
-  int windowSize = 1; //S'incrémente avec slowstart
+  int windowSize = 1; //S'incrémente avec slowstart et congestion avoidance
+  int ssthresh = 7; //Valeur de passage de Slown Start à Congestion Avoidance
   int nWrongAcks = 0; //Compteur de ACK "inappropriés"
 
   //Descripteur
@@ -222,12 +227,11 @@ int main(int argc, char *argv[])
             }
           }
           //Ack bel et bien Reçu : on arrête le timer
-          RoundTripTime = clock() - timer;
-          RoundTripTime = ((double)RoundTripTime)/CLOCKS_PER_SEC; //CLOCKS_PER_SEC : valeur initialisée dans time.h, nb de ticks dans une seconde
+          RoundTripTime = (double)(clock() - timer)/CLOCKS_PER_SEC;
           printf("RTT : %f\n",RoundTripTime);
           //Choix de la valeur du timeout
           timeToWait = round(1000000 * RoundTripTime * ALPHA); //Facteur arbitraire, en microsecondes
-          printf("Timeout (microseconds) : %i\n",timeToWait);
+          printf("Timeout (microseconds) : %f\n",timeToWait);
           timeout.tv_sec = 0;
           timeout.tv_usec = timeToWait; //Initialisation du timer (à répéter avant chaque select)
 
@@ -300,6 +304,11 @@ int main(int argc, char *argv[])
           int i;
           windowSize = 1;
           while(beginWindow <= taillefichier){
+            printf("\n");
+            nWrongAcks = 0;
+            //Congestion Avoidance : on doit incrémenter windowSize à chaque RTT.
+            //On considère qu'une boucle ~ = un RTT.
+            if (windowSize >= ssthresh) windowSize++;
             endWindow = beginWindow + windowSize;
             if (endWindow > taillefichier){
               endWindow = taillefichier;
@@ -312,7 +321,7 @@ int main(int argc, char *argv[])
               sprintf(strSequence,"%i",j); //Numéro de séquence en str
               char *ptr = typeBuffer + (6-strlen(strSequence)); //Pointeur du début d'écriture pour le numéro de séquence
               memcpy(ptr,strSequence,strlen(strSequence)); //Ecriture au ponteur
-              printf("Numéro de séquence : %s\n",typeBuffer);
+              printf("[0] Sending number %s\n",typeBuffer);
               memset(sendBuffer, 0, sizeof(sendBuffer));
               memset(recvBuffer, 0, sizeof(recvBuffer));
               // sprintf(sendBuffer,"%s%s",typeBuffer,bloc); //formation du message à envoyer
@@ -321,11 +330,10 @@ int main(int argc, char *argv[])
               if (j == taillefichier) memcpy(sendBuffer+6,file+i,restefichier); //Si moins de BUFFER_TAILLE - 6 à envoyer
               else memcpy(sendBuffer+6,file+i,BUFFER_TAILLE-6);
               //Envoi du message
-              int a;
-              if (j == taillefichier) a = sendto(socketServUDP_data, sendBuffer, restefichier + 6, 0, (const struct sockaddr *) &adresse_data, taille_data);
-              else a = sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
+              if (j == taillefichier) sendto(socketServUDP_data, sendBuffer, restefichier + 6, 0, (const struct sockaddr *) &adresse_data, taille_data);
+              else sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
               //printf("[o] Sended : \n%s\n\n",sendBuffer);
-              printf("%i\n",a);
+              //printf("%i\n",a);
             }
 
             //Boucle de réception
@@ -340,7 +348,7 @@ int main(int argc, char *argv[])
                 return -1;
               }
               else if (selret == 0) {
-                windowSize = 1;
+                windowSize = max(1,windowSize/2);
                 problem = 1;
                 printf("[-] Timeout.\n");
               }
@@ -351,8 +359,7 @@ int main(int argc, char *argv[])
                   nWrongAcks++;
                   if (nWrongAcks==3){
                     problem = 1;
-                    nWrongAcks = 0;
-                    windowSize = 1;
+                    windowSize = max(1,windowSize/2);
                     printf("[-] 3 wrong acks.\n");
                   }
                 }
@@ -361,8 +368,9 @@ int main(int argc, char *argv[])
                   printf("[+] Ack number %i received.\n",beginWindow);
                   nWrongAcks = 0;
                   beginWindow = get_numSequence(recvBuffer,typeBuffer) + 1;
-                  printf("numSequence du client : %i\n",beginWindow);
-                  windowSize++;
+                  //printf("numSequence du client : %i\n",beginWindow);
+                  if (windowSize<ssthresh) windowSize++;
+                  if (windowSize == ssthresh) printf("[+] Congestion Avoidance.\n");
                 }
               }
             }
