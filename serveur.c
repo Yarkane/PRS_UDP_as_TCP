@@ -131,9 +131,10 @@ int main(int argc, char *argv[])
   int portData;
 
   float timer;
-  long int timeToWait = 10000; //en MICROSECONDES
+  long int timeToWait = 50000; //en MICROSECONDES
   double TempSRTT;
-  double srtt = 0.01;
+  double srtt = 0.05;
+  int measurement = 0; //valeur du paquet dont on mesure le RTT, 0 sinon aucune mesure en cours
 
   //Définition de la window
   //Window = espace entre beginWindow et endWindow
@@ -339,6 +340,10 @@ int main(int argc, char *argv[])
               if (j == taillefichier) memcpy(sendBuffer+6,file+i,restefichier); //Si moins de BUFFER_TAILLE - 6 à envoyer
               else memcpy(sendBuffer+6,file+i,BUFFER_TAILLE-6);
               //Envoi du message
+              if (!measurement){
+                timer = clock();
+                measurement = j;
+              }
               if (j == taillefichier) sendto(socketServUDP_data, sendBuffer, restefichier + 6, 0, (const struct sockaddr *) &adresse_data, taille_data);
               else sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
               //printf("[o] Sended : \n%s\n\n",sendBuffer);
@@ -348,7 +353,6 @@ int main(int argc, char *argv[])
             //Boucle de réception
             problem = 0;
             while((!problem) && ((beginWindow!=endWindow)||(beginWindow == taillefichier))){
-              timer = clock();
               FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
               timeout.tv_usec = timeToWait; //Initialisation du timer
               //printf("timeout usec : %li\n",timeout.tv_usec);
@@ -363,7 +367,7 @@ int main(int argc, char *argv[])
                 windowSize = max(1,windowSize/2);
                 problem = 1;
                 printf("[-] Timeout.\n");
-                srtt = minfloat(1.5*srtt,0.01);
+                srtt = minfloat(1.5*srtt,0.05);
               }
               else{
                 //Vérification nature du message reçu
@@ -385,12 +389,15 @@ int main(int argc, char *argv[])
                   //printf("numSequence du client : %i\n",beginWindow);
                   if (windowSize<ssthresh) windowSize++;
                   if (windowSize == ssthresh) printf("[+] Congestion Avoidance.\n");
-                  TempSRTT = (double)(clock() - timer)/CLOCKS_PER_SEC;
-                  srtt = ALPHASRTT*srtt + (1-ALPHASRTT)*TempSRTT;
-                  timeToWait = 1000000*ALPHA*srtt;
-                  //printf("RTT : %f\n",TempSRTT);
-                  //printf("SRTT : %f\n",srtt);
-                  //printf("timeout : %li\n",timeToWait);
+                  if (measurement < beginWindow) { //Paquet mesuré reçu !
+                    TempSRTT = (double)(clock() - timer)/CLOCKS_PER_SEC;
+                    srtt = ALPHASRTT*srtt + (1-ALPHASRTT)*TempSRTT;
+                    timeToWait = 1000000*ALPHA*srtt;
+                    //printf("RTT : %f\n",TempSRTT);
+                    printf("SRTT : %f\n",srtt);
+                    //printf("timeout : %li\n",timeToWait);
+                    measurement = 0;
+                  }
                 }
               }
             }
