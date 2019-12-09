@@ -16,9 +16,9 @@
 #define DOMAINE AF_INET
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
-#define BUFFER_TAILLE 128
-#define ALPHA 1.5 //Facteur arbitraire : timeout = alpha * rtt
-#define ALPHASRTT 0.8
+#define BUFFER_TAILLE 2048
+#define ALPHA 120 //Facteur arbitraire : timeout = alpha * srtt
+#define ALPHASRTT 0.5
 
 /*
   DEUX REGLEs SUR LE FICHIER A envoyer
@@ -131,9 +131,9 @@ int main(int argc, char *argv[])
   int portData;
 
   float timer;
-  long int timeToWait = 50000; //en MICROSECONDES
+  long int timeToWait = 10000; //en MICROSECONDES
   double TempSRTT;
-  double srtt = 0.05;
+  double srtt = 0.01;
   int measurement = 0; //valeur du paquet dont on mesure le RTT, 0 sinon aucune mesure en cours
 
   //Définition de la window
@@ -367,7 +367,8 @@ int main(int argc, char *argv[])
                 windowSize = max(1,windowSize/2);
                 problem = 1;
                 printf("[-] Timeout.\n");
-                srtt = minfloat(1.5*srtt,0.05);
+                //Augmentation du srtt avec les timeout
+                //srtt = minfloat(1.35*srtt,0.025);
               }
               else{
                 //Vérification nature du message reçu
@@ -394,7 +395,7 @@ int main(int argc, char *argv[])
                     srtt = ALPHASRTT*srtt + (1-ALPHASRTT)*TempSRTT;
                     timeToWait = 1000000*ALPHA*srtt;
                     //printf("RTT : %f\n",TempSRTT);
-                    printf("SRTT : %f\n",srtt);
+                    //printf("SRTT : %f\n",srtt);
                     //printf("timeout : %li\n",timeToWait);
                     measurement = 0;
                   }
