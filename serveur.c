@@ -20,12 +20,6 @@
 #define ALPHA 120 //Facteur arbitraire : timeout = alpha * srtt
 #define ALPHASRTT 0.5
 
-/*
-  DEUX REGLEs SUR LE FICHIER A envoyer
-    - UNE LIGNE NE DOIT PAS COMMENCER PAR END !!!
-    - PAS DE LIGNE à moins de 2 caractères
-*/
-
 void delay(int number_of_microseconds)
 {
     // Storing start time
