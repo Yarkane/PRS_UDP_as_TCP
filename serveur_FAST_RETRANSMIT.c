@@ -17,10 +17,10 @@
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
 #define BUFFER_TAILLE 1500
-#define ALPHA 2 //Facteur arbitraire : timeout = alpha * srtt
-#define ALPHASRTT 0.6
-#define THRESHOLD 10 //passage de slow start à congestion avoidance
-#define INITIAL_WINDOW 4
+#define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
+#define ALPHASRTT 0.9
+#define THRESHOLD 50 //passage de slow start à congestion avoidance
+#define INITIAL_WINDOW 2
 
 void delay(int number_of_microseconds)
 {
@@ -127,9 +127,9 @@ int main(int argc, char *argv[])
   int portData;
 
   float timer;
-  long int timeToWait = 50000; //en MICROSECONDES
+  long int timeToWait = 2000; //en MICROSECONDES
   double TempSRTT;
-  double srtt = 0.3;
+  double srtt = 0.002;
   int measurement = 0; //valeur du paquet dont on mesure le RTT, 0 sinon aucune mesure en cours
 
   //Définition de la window
@@ -221,6 +221,7 @@ int main(int argc, char *argv[])
             //timer = clock();
             //Attente pour le ACK
             FD_SET(socketServUDP, &socket_set); //Activation du bit associé à au socket UDP de CONNEXION
+            timeout.tv_usec = timeToWait;
             selret = select(5,&socket_set,NULL,NULL,&timeout);
             if (selret<0)
             {
@@ -363,13 +364,13 @@ int main(int argc, char *argv[])
               }
               else if (selret == 0) {
                 //mise à jour du ssthresh
-                ssthresh = max(windowSize / 2,2);
-                windowSize = 1;
+                ssthresh = max(windowSize / 2,INITIAL_WINDOW);
+                windowSize = INITIAL_WINDOW;
                 problem = 1;
                 nWrongAcks = 0;
                 printf("[-] Timeout.\n");
                 //Augmentation du srtt avec les timeout
-                srtt = minfloat(1.1*srtt,0.15);
+                srtt = minfloat(1.3*srtt,0.005);
               }
               else{
                 //Vérification nature du message reçu
@@ -382,11 +383,11 @@ int main(int argc, char *argv[])
                   if (nWrongAcks==3){
                     problem = 1;
                     //mise à jour du ssthresh
-                    ssthresh = max(windowSize / 2,2);
+                    ssthresh = max(windowSize / 2,INITIAL_WINDOW);
                     windowSize = ssthresh; //FAST Recovery
                     printf("[-] 3 wrong acks.\n");
-                    printf("attendu (ou +) : %i\n",beginWindow);
-                    printf("reçu : %i\n",receivedAck);
+                    //printf("attendu (ou +) : %i\n",beginWindow);
+                    //printf("reçu : %i\n",receivedAck);
                     //On vide tous les messages à recevoir
                     timeout.tv_usec = 100; //Initialisation du timer
                     FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
@@ -421,7 +422,7 @@ int main(int argc, char *argv[])
 
           //Fin du fichier atteint : procédure end
           printf("end of file\n");
-          //printf("timeToWait : %li\n",timeToWait);
+          printf("timeToWait : %li\n",timeToWait);
           memset(sendBuffer, 0, sizeof(sendBuffer));
           sprintf(sendBuffer,"FIN");
           sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);

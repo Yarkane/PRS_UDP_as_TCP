@@ -43,12 +43,16 @@ client2 : 36s
 
 
 
+------------------
+Taille des paquets : 1500 octets
+Calcul du SRTT
+Nettoyage file messages à wrong acks
+fichier de 3.7Mo
+CA,FRet,FRec
 
+client1 : 5.201s
 
-
-
-
-
+client2 : 12.465s
 
 
 
