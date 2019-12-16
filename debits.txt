@@ -8,9 +8,7 @@ client1 : 0.666s
 
 client2 : 2.412s
 
-- serveur avec Congestion avoidance et sans fast retransmit :
-
-(threshold = 7)
+- serveur avec Congestion avoidance et sans fast retransmit : (threshold = 7)
 
 client1 : 0.917s
 
@@ -23,8 +21,25 @@ client1 : 1.081s - 1.400s
 
 client2 : 1.415s - 2.225s
 
+Débit moyen : 176 ko/s
 
 
+--------
+fichier de 3.7Mo
+
+- serveur avec C.A, F.Retransmit et F.Recovery : (threshold initial = 10)
+
+client1 : 20s
+
+client2 : 22s
+
+Débit moyen : 176 ko/s
+
+- serveur avec Congestion avoidance et sans fast retransmit : (threshold = 7)
+
+client1 : 28s
+
+client2 : 36s
 
 
 
