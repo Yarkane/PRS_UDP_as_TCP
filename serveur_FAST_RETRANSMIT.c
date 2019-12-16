@@ -309,6 +309,7 @@ int main(int argc, char *argv[])
 
           //Boucle d'envoi du fichier
           int i;
+          int timeBeginning = clock();
           windowSize = 1;
           timeout.tv_sec = 0;
           while(beginWindow <= taillefichier){
@@ -422,7 +423,9 @@ int main(int argc, char *argv[])
 
           //Fin du fichier atteint : procédure end
           printf("end of file\n");
-          printf("timeToWait : %li\n",timeToWait);
+          //printf("timeToWait : %li\n",timeToWait);
+          printf("Size : %ld Bytes\n",carac.st_size);
+          printf("Rate (according to the program) : %ld Bytes/s\n",(carac.st_size*CLOCKS_PER_SEC)/(clock()-timeBeginning));
           memset(sendBuffer, 0, sizeof(sendBuffer));
           sprintf(sendBuffer,"FIN");
           sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
