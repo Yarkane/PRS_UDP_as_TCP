@@ -1,3 +1,46 @@
+Taille des paquets : 1024 octets
+Calcul du SRTT mais multiplication par un facteur arbitraire (sale et peu logique)
+fichier de 250ko
+
+- serveur avec slow start uniquement :
+
+client1 : 0.666s
+
+client2 : 2.412s
+
+- serveur avec Congestion avoidance et sans fast retransmit :
+
+(threshold = 7)
+
+client1 : 0.917s
+
+client2 : 2.391s
+
+
+- serveur avec C.A, F.Retransmit et F.Recovery : (threshold initial = 10)
+
+client1 : 1.081s - 1.400s
+
+client2 : 1.415s - 2.225s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- OLD --
+
+
 Note : les serveurs que l'on développera devront être "adaptés" aux clients qu'on utilise.
 Il est donc important de caractériser leurs comportements : certains mécanismes seront peu utiles et même ralentiront le débit !
 

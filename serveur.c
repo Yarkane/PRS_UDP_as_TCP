@@ -16,9 +16,10 @@
 #define DOMAINE AF_INET
 #define TYPE SOCK_DGRAM
 #define PROTOCOL 0
-#define BUFFER_TAILLE 2048
+#define BUFFER_TAILLE 1024
 #define ALPHA 120 //Facteur arbitraire : timeout = alpha * srtt
 #define ALPHASRTT 0.5
+#define THRESHOLD 9 //passage de slow start à congestion avoidance
 
 void delay(int number_of_microseconds)
 {
@@ -137,7 +138,7 @@ int main(int argc, char *argv[])
 
   //Controle de congestion
   int windowSize = 1; //S'incrémente avec slowstart et congestion avoidance
-  int ssthresh = 7; //Valeur de passage de Slown Start à Congestion Avoidance
+  int ssthresh = THRESHOLD; //Valeur de passage de Slown Start à Congestion Avoidance
   int nWrongAcks = 0; //Compteur de ACK "inappropriés"
 
   //Descripteur
@@ -358,7 +359,7 @@ int main(int argc, char *argv[])
                 return -1;
               }
               else if (selret == 0) {
-                windowSize = max(1,windowSize/2);
+                windowSize = 1;
                 problem = 1;
                 printf("[-] Timeout.\n");
                 //Augmentation du srtt avec les timeout
@@ -372,7 +373,7 @@ int main(int argc, char *argv[])
                   nWrongAcks++;
                   if (nWrongAcks==3){
                     problem = 1;
-                    windowSize = max(1,windowSize/2);
+                    windowSize = 1;
                     printf("[-] 3 wrong acks.\n");
                   }
                 }
