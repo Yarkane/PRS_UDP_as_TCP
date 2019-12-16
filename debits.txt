@@ -51,11 +51,11 @@ fichier de 3.7Mo
 CA,FRet,FRec
 window initiale de 40
 
-client1 : 4.792s
+client1 : 2.9s
 
-client2 : 4.941s
+client2 : 3.4s
 
-débit moyen : 750ko/s
+débit moyen : 1,19Mo/s
 
 
 -- OLD --
