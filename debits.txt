@@ -49,12 +49,13 @@ Calcul du SRTT
 Nettoyage file messages à wrong acks
 fichier de 3.7Mo
 CA,FRet,FRec
+window initiale de 40
 
-client1 : 5.201s
+client1 : 4.792s
 
-client2 : 12.465s
+client2 : 4.941s
 
-
+débit moyen : 750ko/s
 
 
 -- OLD --

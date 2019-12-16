@@ -19,8 +19,8 @@
 #define BUFFER_TAILLE 1500
 #define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
 #define ALPHASRTT 0.9
-#define THRESHOLD 50 //passage de slow start à congestion avoidance
-#define INITIAL_WINDOW 2
+#define THRESHOLD 80 //passage de slow start à congestion avoidance
+#define INITIAL_WINDOW 40
 
 void delay(int number_of_microseconds)
 {
