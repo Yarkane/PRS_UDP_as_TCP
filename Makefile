@@ -1,7 +1,7 @@
 CFLAGS = -g -Wall -DDEBUG
 LDFLAGS = -g -Wall -DDEBUG -lm
 
-all: serveur_FAST_RETRANSMIT serveur_SLOW_START serveur
+all: serveur_FAST_RETRANSMIT serveur
 
 serveur_FAST_RETRANSMIT.o: serveur_FAST_RETRANSMIT.c
 	gcc ${CFLAGS} -c serveur_FAST_RETRANSMIT.c -o serveur_FAST_RETRANSMIT.o

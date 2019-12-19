@@ -20,7 +20,7 @@
 #define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
 #define ALPHASRTT 0.9
 #define THRESHOLD 80 //passage de slow start à congestion avoidance
-#define INITIAL_WINDOW 40
+#define INITIAL_WINDOW 1
 
 void delay(int number_of_microseconds)
 {
@@ -142,6 +142,7 @@ int main(int argc, char *argv[])
   int ssthresh = THRESHOLD; //Valeur de passage de Slown Start à Congestion Avoidance
   int nWrongAcks = 0; //Compteur de ACK "inappropriés"
   int receivedAck = 0; //Ack reçu
+  int fastRetransmit = 0; //Booléen, 1 si mode fast retransmit
 
   //Descripteur
   fd_set socket_set;
@@ -315,10 +316,17 @@ int main(int argc, char *argv[])
           while(beginWindow <= taillefichier){
             printf("\n");
             nWrongAcks = 0;
+            //NewReno Fast Retransmit : on n'envoie QUE le paquet perdu.
+            if (fastRetransmit == 1){
+              endWindow = beginWindow;
+              printf("[!]FAST RETRANSMIT : only one segment.\n");
+            }
             //Congestion Avoidance : on doit incrémenter windowSize à chaque RTT.
             //On considère qu'une boucle ~ = un RTT.
-            if (windowSize >= ssthresh) windowSize++;
-            endWindow = beginWindow + windowSize;
+            else {
+              endWindow = beginWindow + windowSize;
+              if (windowSize >= ssthresh) windowSize++;
+            }
             if (endWindow > taillefichier){
               endWindow = taillefichier;
               windowSize = endWindow - beginWindow + 1;
@@ -352,7 +360,7 @@ int main(int argc, char *argv[])
 
             //Boucle de réception
             problem = 0;
-            while((!problem) && ((beginWindow!=endWindow)||(beginWindow == taillefichier))){
+            while((!problem) && ((beginWindow!=endWindow)||(beginWindow == taillefichier)||(fastRetransmit))){
               FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
               timeout.tv_usec = timeToWait; //Initialisation du timer
               //printf("timeout usec : %li\n",timeout.tv_usec);
@@ -363,15 +371,16 @@ int main(int argc, char *argv[])
                 perror("[!] Select Error.\n");
                 return -1;
               }
-              else if (selret == 0) {
+              else if (selret == 0) { //TIMEOUT
                 //mise à jour du ssthresh
-                ssthresh = max(windowSize / 2,INITIAL_WINDOW);
+                ssthresh = max(windowSize / 2, 2 * INITIAL_WINDOW);
                 windowSize = INITIAL_WINDOW;
                 problem = 1;
                 nWrongAcks = 0;
                 printf("[-] Timeout.\n");
+                fastRetransmit = 0;
                 //Augmentation du srtt avec les timeout
-                srtt = minfloat(1.3*srtt,0.005);
+                srtt = minfloat(1.1*srtt,0.01);
               }
               else{
                 //Vérification nature du message reçu
@@ -384,19 +393,29 @@ int main(int argc, char *argv[])
                   if (nWrongAcks==3){
                     problem = 1;
                     //mise à jour du ssthresh
-                    ssthresh = max(windowSize / 2,INITIAL_WINDOW);
+                    ssthresh = max(windowSize / 2, 2 * INITIAL_WINDOW);
                     windowSize = ssthresh; //FAST Recovery
                     printf("[-] 3 wrong acks.\n");
                     //printf("attendu (ou +) : %i\n",beginWindow);
                     //printf("reçu : %i\n",receivedAck);
-                    //On vide tous les messages à recevoir
+
+                    //FAST RETRANSMIT MODE :
+                    //On lit tous les messages à recevoir, et on compte tous les duplicated acks.
+                    //NewReno fastRetransmit : on retransmet le paquet manquant et un paquet additionnel pour chaque duplicated ack.
+                    //RFC 5681
                     timeout.tv_usec = 100; //Initialisation du timer
                     FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
-                    while(select(5,&socket_set,NULL,NULL,&timeout) != 0){
-                      FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
+                    while(select(5,&socket_set,NULL,NULL,&timeout) != 0){ //Tant qu'il y a des messages à lire :
+                      FD_SET(socketServUDP_data, &socket_set);
                       recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+                      if (get_numSequence(recvBuffer,typeBuffer) < beginWindow) nWrongAcks++;
                       timeout.tv_usec = 100; //Initialisation du timer
                     }
+                    //Incrémentation de windowsize
+                    windowSize += nWrongAcks;
+                    nWrongAcks = 0;
+                    //Passage en mode fast retransmit pour l'émission.
+                    fastRetransmit = 1;
                   }
                 }
                 else{
@@ -405,7 +424,8 @@ int main(int argc, char *argv[])
                   nWrongAcks = 0;
                   beginWindow = receivedAck + 1;
                   //printf("numSequence du client : %i\n",beginWindow);
-                  if (windowSize<ssthresh) windowSize++;
+                  if ((windowSize<ssthresh)&&(!fastRetransmit)) windowSize++;
+                  fastRetransmit = 0;
                   if (windowSize == ssthresh) printf("[+] Congestion Avoidance.\n");
                   if (measurement < beginWindow) { //Paquet mesuré reçu !
                     TempSRTT = (double)(clock() - timer)/CLOCKS_PER_SEC;
