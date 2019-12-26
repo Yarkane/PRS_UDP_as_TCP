@@ -18,7 +18,7 @@
 #define PROTOCOL 0
 #define BUFFER_TAILLE 1500
 #define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
-#define ALPHASRTT 0.9
+#define ALPHASRTT 0.7
 #define THRESHOLD 80 //passage de slow start à congestion avoidance
 #define INITIAL_WINDOW 1
 
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
   int selret;
   int portData;
 
-  float timer;
+  double timer;
   long int timeToWait = 2000; //en MICROSECONDES
   double TempSRTT;
   double srtt = 0.002;
@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
 
           //Boucle d'envoi du fichier
           int i;
-          int timeBeginning = what_time_is_it();
+          double timeBeginning = what_time_is_it();
           windowSize = 1;
           timeout.tv_sec = 0;
           while(beginWindow <= taillefichier){
@@ -376,8 +376,8 @@ int main(int argc, char *argv[])
             while((!problem) && (nReceived < nSent) && ((beginWindow<=endWindow)||(beginWindow == taillefichier)||(fastRetransmit))){
               FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
               timeout.tv_usec = timeToWait; //Initialisation du timer
-              printf("timeout usec : %li\n",timeout.tv_usec);
-              printf("timeout sec : %li\n",timeout.tv_sec);
+              //printf("timeout usec : %li\n",timeout.tv_usec);
+              //printf("timeout sec : %li\n",timeout.tv_sec);
               selret = select(5,&socket_set,NULL,NULL,&timeout);
               if (selret<0)
               {
@@ -441,7 +441,7 @@ int main(int argc, char *argv[])
                     printf("[-] Timeout.\n");
                     fastRetransmit = 0;
                     //Augmentation du srtt avec les timeout
-                    srtt = minfloat(1.1*srtt,0.01);
+                    srtt = minfloat(1.3*srtt,0.01);
                   }
                 }
                 else{
@@ -453,13 +453,13 @@ int main(int argc, char *argv[])
                   if ((windowSize<ssthresh)&&(!fastRetransmit)) windowSize++;
                   fastRetransmit = 0;
                   if (windowSize == ssthresh) printf("[+] Congestion Avoidance.\n");
-                  if (measurement < beginWindow) { //Paquet mesuré reçu !
+                  if ((measurement < beginWindow)&&(measurement != 0)) { //Paquet mesuré reçu !
                     TempSRTT = (what_time_is_it() - timer);
                     srtt = ALPHASRTT*srtt + (1-ALPHASRTT)*TempSRTT;
                     timeToWait = (int)(ALPHA*srtt);
                     //printf("RTT : %f\n",TempSRTT);
-                    printf("SRTT : %f\n",srtt);
-                    printf("timeout : %li\n",timeToWait);
+                    //printf("SRTT : %f\n",srtt);
+                    //printf("timeout : %li\n",timeToWait);
                     measurement = 0;
                   }
                 }
@@ -471,7 +471,9 @@ int main(int argc, char *argv[])
           printf("end of file\n");
           //printf("timeToWait : %li\n",timeToWait);
           printf("Size : %ld Bytes\n",carac.st_size);
-          printf("Rate (according to the program) : %ld Bytes/s\n",(carac.st_size*CLOCKS_PER_SEC)/(clock()-timeBeginning));
+          double timeTaken = (what_time_is_it()-timeBeginning) / 1000000; //Car temps en microsecondes
+          printf("Time taken : %f\n",timeTaken);
+          printf("Rate (according to the program) : %f Bytes/s\n",((double)carac.st_size/timeTaken));
           memset(sendBuffer, 0, sizeof(sendBuffer));
           sprintf(sendBuffer,"FIN");
           sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
