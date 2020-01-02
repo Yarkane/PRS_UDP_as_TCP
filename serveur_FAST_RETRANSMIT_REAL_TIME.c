@@ -18,7 +18,7 @@
 #define PROTOCOL 0
 #define BUFFER_TAILLE 1500
 #define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
-#define ALPHASRTT 0.7
+#define ALPHASRTT 0.8
 #define THRESHOLD 80 //passage de slow start à congestion avoidance
 #define INITIAL_WINDOW 1
 
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
   double timer;
   long int timeToWait = 2000; //en MICROSECONDES
   double TempSRTT;
-  double srtt = 0.002;
+  double srtt = 2000;
   int measurement = 0; //valeur du paquet dont on mesure le RTT, 0 sinon aucune mesure en cours
 
   //Définition de la window
@@ -364,6 +364,7 @@ int main(int argc, char *argv[])
               if (!measurement){
                 timer = what_time_is_it();
                 measurement = j;
+                //printf("[i] Début de la mesure pour segment %i\n",j);
               }
               if (j == taillefichier) sendto(socketServUDP_data, sendBuffer, restefichier + 6, 0, (const struct sockaddr *) &adresse_data, taille_data);
               else sendto(socketServUDP_data, sendBuffer, BUFFER_TAILLE, 0, (const struct sockaddr *) &adresse_data, taille_data);
@@ -373,7 +374,7 @@ int main(int argc, char *argv[])
 
             //Boucle de réception
             problem = 0;
-            while((!problem) && (nReceived < nSent) && ((beginWindow<=endWindow)||(beginWindow == taillefichier)||(fastRetransmit))){
+            while((!problem) && (nReceived < nSent) && ((beginWindow<=endWindow)||(fastRetransmit)||(beginWindow == taillefichier))){
               FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
               timeout.tv_usec = timeToWait; //Initialisation du timer
               //printf("timeout usec : %li\n",timeout.tv_usec);
@@ -441,7 +442,8 @@ int main(int argc, char *argv[])
                     printf("[-] Timeout.\n");
                     fastRetransmit = 0;
                     //Augmentation du srtt avec les timeout
-                    srtt = minfloat(1.3*srtt,0.01);
+                    srtt = minfloat(1.1*srtt,10000);
+                    timeToWait = (long int)(ALPHA*srtt);
                   }
                 }
                 else{
@@ -455,8 +457,9 @@ int main(int argc, char *argv[])
                   if (windowSize == ssthresh) printf("[+] Congestion Avoidance.\n");
                   if ((measurement < beginWindow)&&(measurement != 0)) { //Paquet mesuré reçu !
                     TempSRTT = (what_time_is_it() - timer);
-                    srtt = ALPHASRTT*srtt + (1-ALPHASRTT)*TempSRTT;
-                    timeToWait = (int)(ALPHA*srtt);
+                    srtt = ALPHASRTT*srtt + (1.0-ALPHASRTT)*TempSRTT;
+                    timeToWait = (long int)(ALPHA*srtt);
+                    //printf("[i] Fin de la mesure pour segment %i\n",measurement);
                     //printf("RTT : %f\n",TempSRTT);
                     //printf("SRTT : %f\n",srtt);
                     //printf("timeout : %li\n",timeToWait);
