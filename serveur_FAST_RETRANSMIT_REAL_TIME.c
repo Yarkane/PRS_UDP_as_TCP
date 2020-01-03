@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
               if (j == taillefichier) memcpy(sendBuffer+6,file+i,restefichier); //Si moins de BUFFER_TAILLE - 6 à envoyer
               else memcpy(sendBuffer+6,file+i,BUFFER_TAILLE-6);
               //Envoi du message
-              if (!measurement){
+              if ((!measurement)&&(j==endWindow)){ //On ne mesurera que le dernier paquet envoyé afin d'éviter des valeurs absurdes
                 timer = what_time_is_it();
                 measurement = j;
                 //printf("[i] Début de la mesure pour segment %i\n",j);
