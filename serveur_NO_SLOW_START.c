@@ -18,9 +18,9 @@
 #define PROTOCOL 0
 #define BUFFER_TAILLE 1500
 #define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
-#define ALPHASRTT 0.8
+#define ALPHASRTT 0.5
 #define THRESHOLD 0 //passage de slow start à congestion avoidance
-#define INITIAL_WINDOW 9
+#define INITIAL_WINDOW 15
 
 
 double what_time_is_it(){
@@ -418,19 +418,19 @@ int main(int argc, char *argv[])
                     //On lit tous les messages à recevoir, et on compte tous les duplicated acks.
                     //NewReno fastRetransmit : on retransmet le paquet manquant et un paquet additionnel pour chaque duplicated ack.
                     //RFC 5681
-                    timeout.tv_usec = 100; //Initialisation du timer
+                    timeout.tv_usec = 500; //Initialisation du timer
                     FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
                     while(select(5,&socket_set,NULL,NULL,&timeout) != 0){ //Tant qu'il y a des messages à lire :
                       FD_SET(socketServUDP_data, &socket_set);
                       recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
                       if (get_numSequence(recvBuffer,typeBuffer) < beginWindow) nWrongAcks++;
-                      timeout.tv_usec = 100; //Initialisation du timer
+                      timeout.tv_usec = 500; //Initialisation du timer
                     }
                     //Incrémentation de windowsize
                     windowSize += nWrongAcks;
                     nWrongAcks = 0;
                     //Passage en mode fast retransmit pour l'émission.
-                    fastRetransmit = 1;
+                    //fastRetransmit = 1;
                   }
                   else if(fastRetransmit == 1){
                     //SI erreur alors que fast RETRANSMIT : = TIMEOUT

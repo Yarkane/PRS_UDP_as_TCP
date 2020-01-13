@@ -115,6 +115,7 @@ PARAMETRES IMPORTANTS :
 ALPHA : 1.2
 ALPHASRTT : 0.8
 Augmentation du SRTT quand timeout : oui, limite 30000, facteur 1.05
+Version no slow start : initial window à 9
 
 FAST RETRANSMIT REAL TIME :
 client1 : 4,3 Mo/s
@@ -123,3 +124,16 @@ client2 : 384 ko/s
 NO SLOW START :
 client1 : 4,26 Mo/s
 client2 : 1,25 Mo/s
+
+NO SLOW START avec AlphaSRTT à 0.5 :
+client1 : 4,89 Mo/s
+client2 : 1,38 Mo/s
+
++ initial window à 15
+client1 : 4,5 Mo/s
+client2 : 1,84 Mo/s
+
++ retrait de fast RETRANSMIT : aucun changement
+
++ initial window à 25/20
+grands ralentissements
