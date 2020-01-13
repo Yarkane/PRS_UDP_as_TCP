@@ -107,9 +107,19 @@ real	0m15,299s
 user	0m7,337s
 sys	0m4,237s
 
-PAREMETRES IMPORTANTS :
 
-ALPHA
-ALPHASRTT
-Augmentation du SRTT quand timeout
-valeur initiale du SRTT
+-------------------------------------------------------
+
+PARAMETRES IMPORTANTS :
+
+ALPHA : 1.2
+ALPHASRTT : 0.8
+Augmentation du SRTT quand timeout : oui, limite 30000, facteur 1.05
+
+FAST RETRANSMIT REAL TIME :
+client1 : 4,3 Mo/s
+client2 : 384 ko/s
+
+NO SLOW START :
+client1 : 4,26 Mo/s
+client2 : 1,25 Mo/s

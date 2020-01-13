@@ -1,7 +1,7 @@
 CFLAGS = -g -Wall -DDEBUG
 LDFLAGS = -g -Wall -DDEBUG -lm
 
-all: serveur_FAST_RETRANSMIT_REAL_TIME serveur_FAST_RETRANSMIT serveur
+all: serveur_FAST_RETRANSMIT_REAL_TIME serveur_FAST_RETRANSMIT serveur_NO_SLOW_START serveur
 
 serveur_FAST_RETRANSMIT_REAL_TIME.o: serveur_FAST_RETRANSMIT_REAL_TIME.c
 	gcc ${CFLAGS} -c serveur_FAST_RETRANSMIT_REAL_TIME.c -o serveur_FAST_RETRANSMIT_REAL_TIME.o
@@ -20,6 +20,12 @@ serveur_SLOW_START.o: serveur_SLOW_START.c
 
 serveur_SLOW_START: serveur_SLOW_START.o
 		gcc ${LDFLAGS} serveur_SLOW_START.o -o serveur_SLOW_START
+
+serveur_NO_SLOW_START.o: serveur_NO_SLOW_START.c
+		gcc ${CFLAGS} -c serveur_NO_SLOW_START.c -o serveur_NO_SLOW_START.o
+
+serveur_NO_SLOW_START: serveur_NO_SLOW_START.o
+		gcc ${LDFLAGS} serveur_NO_SLOW_START.o -o serveur_NO_SLOW_START
 
 serveur.o:	serveur.c
 	gcc ${CFLAGS} -c serveur.c -o serveur.o

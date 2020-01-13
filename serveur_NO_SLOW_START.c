@@ -19,8 +19,8 @@
 #define BUFFER_TAILLE 1500
 #define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
 #define ALPHASRTT 0.8
-#define THRESHOLD 80 //passage de slow start à congestion avoidance
-#define INITIAL_WINDOW 1
+#define THRESHOLD 0 //passage de slow start à congestion avoidance
+#define INITIAL_WINDOW 9
 
 
 double what_time_is_it(){
@@ -387,7 +387,7 @@ int main(int argc, char *argv[])
               }
               else if (selret == 0) { //TIMEOUT
                 //mise à jour du ssthresh
-                ssthresh = max(windowSize / 2, 2 * INITIAL_WINDOW);
+                //ssthresh = max(windowSize / 2, 2 * INITIAL_WINDOW);
                 windowSize = INITIAL_WINDOW;
                 problem = 1;
                 nWrongAcks = 0;
@@ -418,13 +418,13 @@ int main(int argc, char *argv[])
                     //On lit tous les messages à recevoir, et on compte tous les duplicated acks.
                     //NewReno fastRetransmit : on retransmet le paquet manquant et un paquet additionnel pour chaque duplicated ack.
                     //RFC 5681
-                    timeout.tv_usec = 400; //Initialisation du timer
+                    timeout.tv_usec = 100; //Initialisation du timer
                     FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
                     while(select(5,&socket_set,NULL,NULL,&timeout) != 0){ //Tant qu'il y a des messages à lire :
                       FD_SET(socketServUDP_data, &socket_set);
                       recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
                       if (get_numSequence(recvBuffer,typeBuffer) < beginWindow) nWrongAcks++;
-                      timeout.tv_usec = 400; //Initialisation du timer
+                      timeout.tv_usec = 100; //Initialisation du timer
                     }
                     //Incrémentation de windowsize
                     windowSize += nWrongAcks;
@@ -452,7 +452,7 @@ int main(int argc, char *argv[])
                   nWrongAcks = 0;
                   beginWindow = receivedAck + 1;
                   //printf("numSequence du client : %i\n",beginWindow);
-                  if ((windowSize<ssthresh)&&(!fastRetransmit)) windowSize++;
+                  //if ((windowSize<ssthresh)&&(!fastRetransmit)) windowSize++;
                   fastRetransmit = 0;
                   if (windowSize == ssthresh) printf("[+] Congestion Avoidance.\n");
                   if ((measurement < beginWindow)&&(measurement != 0)) { //Paquet mesuré reçu !
@@ -461,7 +461,7 @@ int main(int argc, char *argv[])
                     timeToWait = (long int)(ALPHA*srtt);
                     //printf("[i] Fin de la mesure pour segment %i\n",measurement);
                     //printf("RTT : %f\n",TempSRTT);
-                    printf("SRTT : %f\n",srtt);
+                    //printf("SRTT : %f\n",srtt);
                     //printf("timeout : %li\n",timeToWait);
                     measurement = 0;
                   }
