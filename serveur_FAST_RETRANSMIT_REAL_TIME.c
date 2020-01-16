@@ -401,9 +401,11 @@ int main(int argc, char *argv[])
                 //Vérification nature du message reçu
                 recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
                 receivedAck = get_numSequence(recvBuffer,typeBuffer);
-                if(receivedAck < beginWindow) {
+                if(receivedAck == beginWindow -1 ) {
                   //Erreur : mauvais num sequence
                   //Si = au wrongack précédent, on ignore simplement
+                  //Si < au beginWindow - 1 : on considère que c'est dû à la gigue / une erreur d'envoi,
+                  //car en théorie un acquittement supérieur a déjà été envoyé.
                   nWrongAcks++;
                   if (nWrongAcks==3){
                     problem = 1;
@@ -467,6 +469,15 @@ int main(int argc, char *argv[])
                   }
                 }
               }
+            }
+            //Fin de la boucle de réception : on a reçu tous les messages utiles // on a eu un problème synonyme de Congestion
+            //On jette tous les paquets qui arriveront / sont arrivés car il y a de fortes chances qu'ils soient incorrects.
+            timeout.tv_usec = 500; //Initialisation du timer
+            FD_SET(socketServUDP_data, &socket_set); //Activation du bit associé à au socket UDP de DATA
+            while(select(5,&socket_set,NULL,NULL,&timeout) != 0){ //Tant qu'il y a des messages à lire :
+              FD_SET(socketServUDP_data, &socket_set);
+              recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
+              timeout.tv_usec = 500; //Initialisation du timer
             }
           }
 

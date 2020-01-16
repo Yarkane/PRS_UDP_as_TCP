@@ -401,9 +401,10 @@ int main(int argc, char *argv[])
                 //Vérification nature du message reçu
                 recvfrom(socketServUDP_data, recvBuffer, BUFFER_TAILLE, 0,(struct sockaddr*)&adresse_data, &taille_data);
                 receivedAck = get_numSequence(recvBuffer,typeBuffer);
-                if(receivedAck < beginWindow) {
+                if(receivedAck == beginWindow - 1) {
                   //Erreur : mauvais num sequence
                   //Si = au wrongack précédent, on ignore simplement
+                  //Si < au dernier bon acquittement reçu : on considère que c'est une erreur d'envoi / un délai dans la transmission
                   nWrongAcks++;
                   if (nWrongAcks==3){
                     problem = 1;
