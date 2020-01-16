@@ -1,0 +1,21 @@
+NO SLOW START :
+
+- Taille fenêtre : 15
+- client1 : 1,300 Mo/s
+- client2 : 1,050 Mo/s
+
+- Taille fenêtre : 25
+- client1 : 1,300 Mo/s
+- client2 : 1,260 Mo/s
+
+- Taille fenêtre : 35
+- client1 : 1,300 Mo/s
+- client2 : 1,300 Mo/s
+
+-
+
+SLOW START + FAST RETRANSMIT :
+
+- Taille fenêtre :
+- client1 : 1,150 Mo/s
+- client2 : 0.500 Mo/s

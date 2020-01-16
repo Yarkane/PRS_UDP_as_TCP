@@ -20,7 +20,7 @@
 #define ALPHA 1.2 //Facteur arbitraire : timeout = alpha * srtt
 #define ALPHASRTT 0.5
 #define THRESHOLD 0 //passage de slow start à congestion avoidance
-#define INITIAL_WINDOW 15
+#define INITIAL_WINDOW 30
 
 
 double what_time_is_it(){
